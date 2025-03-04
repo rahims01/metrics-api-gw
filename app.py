@@ -1,6 +1,6 @@
 import logging
 import atexit
-from flask import Flask, Blueprint
+from flask import Flask, Blueprint, send_from_directory
 from flask_restx import Api
 from prometheus_client import make_wsgi_app
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
@@ -49,6 +49,35 @@ def health_check():
         }
     }, 200 if kafka_status else 503
 
+# Root path redirects to API documentation
+@app.route('/')
+def root():
+    """Redirect root to API documentation"""
+    return """
+    <html>
+        <head>
+            <title>Metrics Collection API</title>
+            <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+        </head>
+        <body class="container mt-5">
+            <h1>Metrics Collection API</h1>
+            <div class="mt-4">
+                <h2>Available Endpoints:</h2>
+                <ul class="list-group">
+                    <li class="list-group-item"><a href="/api/swagger-ui">API Documentation (Swagger UI)</a></li>
+                    <li class="list-group-item"><a href="/health">Health Check</a></li>
+                    <li class="list-group-item"><a href="/prometheus-metrics">Prometheus Metrics</a></li>
+                </ul>
+            </div>
+        </body>
+    </html>
+    """
+
+# Serve swagger-ui assets
+@app.route('/swagger-ui/<path:filename>')
+def serve_swagger_ui(filename):
+    return send_from_directory('templates', filename)
+
 # Log all registered routes
 logger.info("Registered routes:")
 for rule in app.url_map.iter_rules():
@@ -57,7 +86,7 @@ for rule in app.url_map.iter_rules():
 # Add Prometheus WSGI middleware last to avoid conflicts
 app.wsgi_app = DispatcherMiddleware(
     app.wsgi_app, 
-    {'/metrics': make_wsgi_app()}
+    {'/prometheus-metrics': make_wsgi_app()}  # Changed from '/metrics' to avoid conflicts
 )
 
 # Register cleanup function

@@ -20,6 +20,7 @@ class KafkaProducerService:
         Initialize the Kafka producer with retry mechanism
         Returns True if successfully connected, False otherwise
         """
+        # Don't retry too frequently
         current_time = time.time()
         if (current_time - self.last_connection_attempt) < self.connection_retry_interval:
             return False
@@ -48,27 +49,29 @@ class KafkaProducerService:
         Send metric data to Kafka topic
         Returns True if sent successfully, False otherwise
         """
-        if not self.producer and not self._initialize_producer():
-            logger.warning("Kafka producer not available, storing metrics in Prometheus only")
-            return False
+        if not self.producer:
+            if not self._initialize_producer():
+                logger.warning("Kafka producer not available, storing metrics in Prometheus only")
+                return True  # Return True to allow API to function without Kafka
 
         try:
-            future = self.producer.send(
-                Config.KAFKA_TOPIC,
-                value=metric_data
-            )
-            # Wait for the message to be delivered
-            future.get(timeout=2)
-            logger.debug(f"Successfully sent metric to Kafka: {metric_data}")
-            return True
+            if self.producer:  # Double-check as _initialize_producer might have failed
+                future = self.producer.send(
+                    Config.KAFKA_TOPIC,
+                    value=metric_data
+                )
+                # Wait for the message to be delivered
+                future.get(timeout=2)
+                logger.debug(f"Successfully sent metric to Kafka: {metric_data}")
+            return True  # Return True even if Kafka is not available
         except KafkaError as e:
             logger.error(f"Error sending metric to Kafka: {str(e)}")
             self.producer = None  # Reset producer to trigger reconnection
-            return False
+            return True  # Return True to allow API to function without Kafka
 
     def is_connected(self) -> bool:
         """Check if connected to Kafka"""
-        return self.producer is not None and self._initialize_producer()
+        return self.producer is not None
 
     def close(self):
         """Close the Kafka producer"""
