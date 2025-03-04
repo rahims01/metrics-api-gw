@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import os
 from typing import Optional
 from kafka import KafkaProducer
 from kafka.errors import KafkaError
@@ -13,7 +14,11 @@ class KafkaProducerService:
         self.producer: Optional[KafkaProducer] = None
         self.last_connection_attempt = 0
         self.connection_retry_interval = 5  # seconds
-        self._initialize_producer()
+        self.dev_mode = os.getenv('FLASK_ENV', 'production') == 'development'
+        if not self.dev_mode:
+            self._initialize_producer()
+        else:
+            logger.info("Running in development mode - Kafka producer disabled")
 
     def _initialize_producer(self) -> bool:
         """
@@ -49,6 +54,10 @@ class KafkaProducerService:
         Send metric data to Kafka topic
         Returns True if sent successfully, False otherwise
         """
+        if self.dev_mode:
+            logger.debug(f"Dev mode: Simulating metric send: {metric_data}")
+            return True
+
         if not self.producer:
             if not self._initialize_producer():
                 logger.warning("Kafka producer not available, storing metrics in Prometheus only")
@@ -71,6 +80,8 @@ class KafkaProducerService:
 
     def is_connected(self) -> bool:
         """Check if connected to Kafka"""
+        if self.dev_mode:
+            return True
         return self.producer is not None
 
     def close(self):
