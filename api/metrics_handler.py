@@ -39,7 +39,23 @@ class MetricsResource(Resource):
 
                 # Validate required fields
                 if not all(key in data for key in ['name', 'value', 'timestamp']):
-                    return {'error': 'Missing required fields'}, 400
+                    error_msg = 'Missing required fields: name, value, timestamp'
+                    logger.warning(f"Validation error: {error_msg}")
+                    return {'error': error_msg}, 400
+
+                # Validate metric name format
+                if not isinstance(data['name'], str) or len(data['name']) > 255:
+                    error_msg = 'Invalid metric name format'
+                    logger.warning(f"Validation error: {error_msg}")
+                    return {'error': error_msg}, 400
+
+                # Validate metric value
+                try:
+                    data['value'] = float(data['value'])
+                except (TypeError, ValueError):
+                    error_msg = 'Invalid metric value: must be a number'
+                    logger.warning(f"Validation error: {error_msg}")
+                    return {'error': error_msg}, 400
 
                 # Update Prometheus counter for received metrics
                 metrics_received.inc()
@@ -47,17 +63,26 @@ class MetricsResource(Resource):
                 # Try to send to Kafka
                 if kafka_producer.send_metric(data):
                     kafka_metrics_sent.inc()
+                    logger.debug(f"Successfully processed metric: {data['name']}")
                 else:
                     kafka_metrics_failed.inc()
+                    logger.warning(f"Failed to send metric to Kafka: {data['name']}")
 
                 # Update Kafka connection status
                 kafka_connection_status.set(1.0 if kafka_producer.is_connected() else 0.0)
 
-                return {'status': 'accepted'}, 202
+                return {
+                    'status': 'accepted',
+                    'message': 'Metric processed successfully'
+                }, 202
 
         except Exception as e:
-            logger.error(f"Error processing metric: {str(e)}")
-            return {'error': 'Internal server error'}, 500
+            logger.error(f"Error processing metric: {str(e)}", exc_info=True)
+            kafka_metrics_failed.inc()
+            return {
+                'error': 'Internal server error',
+                'message': 'Failed to process metric'
+            }, 500
 
 @metrics_namespace.route('/health')
 class HealthResource(Resource):
@@ -67,7 +92,15 @@ class HealthResource(Resource):
         kafka_status = kafka_producer.is_connected()
         kafka_connection_status.set(1.0 if kafka_status else 0.0)
 
+        metrics_stats = {
+            'total_received': metrics_received._value.get(),
+            'successfully_sent': kafka_metrics_sent._value.get(),
+            'failed_sends': kafka_metrics_failed._value.get()
+        }
+
         return {
             'status': 'healthy',
-            'kafka_connected': kafka_status
+            'kafka_connected': kafka_status,
+            'metrics_stats': metrics_stats,
+            'service_mode': 'normal' if kafka_status else 'degraded'
         }
