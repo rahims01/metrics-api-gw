@@ -24,7 +24,7 @@ def get_int_env_var(key: str, default: int) -> int:
     except (TypeError, ValueError):
         return default
 
-class Config:
+class Config:        
     """Application configuration"""
 
     # Environment
