@@ -1,50 +1,43 @@
-import logging
+import os
 import atexit
 import datetime
-from flask import Flask, Blueprint, send_from_directory
-from flask_restx import Api
-from flask_cors import CORS
-from prometheus_client import make_wsgi_app
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
-from werkzeug.middleware.proxy_fix import ProxyFix
-from api.metrics_handler import metrics_namespace, kafka_producer
-from config import Config
+import logging
+from typing import Optional
 
+from flask import Flask, send_from_directory
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from prometheus_client import make_wsgi_app
+
+from config import Config
+from services.kafka_producer import KafkaProducerService
+from services.kafka_consumer import KafkaConsumerService
+from api.metrics_handler import metrics_namespace
+
+# Configure logging
+logging.basicConfig(level=Config.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app
+# Initialize services
+kafka_producer = KafkaProducerService()
+kafka_consumer = KafkaConsumerService()
+
+# Create Flask app
 app = Flask(__name__)
-app.config.from_object(Config)
+app.secret_key = os.environ.get("SESSION_SECRET")
 
-# Add ProxyFix middleware for proper header handling behind reverse proxies
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-
-# Configure CORS
-CORS(app, resources={
-    r"/api/*": {"origins": Config.CORS_ORIGINS}
-})
-
-# Create Blueprint for API
-blueprint = Blueprint('api', __name__, url_prefix='/api')
-
-# Initialize Flask-RestX with the blueprint
+# Register API routes
+from flask_restx import Api
 api = Api(
-    blueprint,
-    version='1.0',
     title='Metrics Collection API',
-    description='API for collecting metrics from TypeScript clients',
-    doc='/swagger-ui',  # This will be accessible at /api/swagger-ui
+    version='2.0',  # Updated version
+    description='API for collecting and exposing metrics'
 )
+api.add_namespace(metrics_namespace, path='/api/metrics')
+api.init_app(app)
 
-# Add namespaces
-api.add_namespace(metrics_namespace)
-
-# Register blueprint with Flask app
-app.register_blueprint(blueprint)
-
-# Root path redirects to API documentation
+# Root endpoint
 @app.route('/')
-def root():
+def index():
     """Landing page with API documentation links"""
     return """
     <html>
@@ -54,7 +47,7 @@ def root():
             <meta name="viewport" content="width=device-width, initial-scale=1">
         </head>
         <body class="container mt-5">
-            <h1>Metrics Collection API</h1>
+            <h1>Metrics Collection API v2.0</h1>
             <div class="mt-4">
                 <h2>Available Endpoints:</h2>
                 <ul class="list-group">
@@ -71,22 +64,28 @@ def root():
 @app.route('/health')
 def health_check():
     """Global health check endpoint with detailed component status"""
-    kafka_status = kafka_producer.is_connected()
+    kafka_producer_status = kafka_producer.is_connected()
+    kafka_consumer_status = kafka_consumer.is_connected()
+
     health_data = {
-        'status': 'healthy' if kafka_status else 'degraded',
+        'status': 'healthy' if (kafka_producer_status and kafka_consumer_status) else 'degraded',
         'components': {
-            'kafka': {
-                'status': 'connected' if kafka_status else 'disconnected',
-                'details': 'Ready for metric collection' if kafka_status else 'Operating in metrics-only mode'
+            'kafka_producer': {
+                'status': 'connected' if kafka_producer_status else 'disconnected',
+                'details': 'Ready for metric collection' if kafka_producer_status else 'Operating in metrics-only mode'
+            },
+            'kafka_consumer': {
+                'status': 'connected' if kafka_consumer_status else 'disconnected',
+                'details': 'Processing metrics' if kafka_consumer_status else 'Metrics processing disabled'
             },
             'api': {
                 'status': 'healthy',
-                'version': '1.0'
+                'version': '2.0'
             }
         },
         'timestamp': datetime.datetime.utcnow().isoformat()
     }
-    return health_data, 200 if kafka_status else 503
+    return health_data, 200 if (kafka_producer_status and kafka_consumer_status) else 503
 
 # Serve swagger UI and static files
 @app.route('/api/swagger.json')
@@ -121,7 +120,7 @@ logger.info("Registered routes:")
 for rule in app.url_map.iter_rules():
     logger.info(f"Route: {rule.rule} -> {rule.endpoint}")
 
-# Add Prometheus WSGI middleware last to avoid conflicts
+# Add Prometheus WSGI middleware to expose metrics
 app.wsgi_app = DispatcherMiddleware(
     app.wsgi_app, 
     {'/prometheus-metrics': make_wsgi_app()}
@@ -133,6 +132,8 @@ def cleanup():
     """Clean up resources on shutdown"""
     if kafka_producer:
         kafka_producer.close()
+    if kafka_consumer:
+        kafka_consumer.close()
 
 if __name__ == '__main__':
     # Log startup configuration
