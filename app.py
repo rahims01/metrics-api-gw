@@ -25,11 +25,11 @@ CORS(app, resources={
 })
 
 # Create Blueprint for API
-api_bp = Blueprint('api', __name__, url_prefix='/api')
+blueprint = Blueprint('api', __name__, url_prefix='/api')
 
 # Initialize Flask-RestX with the blueprint
 api = Api(
-    api_bp,
+    blueprint,
     version='1.0',
     title='Metrics Collection API',
     description='API for collecting metrics from TypeScript clients',
@@ -40,7 +40,7 @@ api = Api(
 api.add_namespace(metrics_namespace)
 
 # Register blueprint with Flask app
-app.register_blueprint(api_bp)
+app.register_blueprint(blueprint)
 
 # Root path redirects to API documentation
 @app.route('/')
@@ -87,6 +87,15 @@ def health_check():
         'timestamp': datetime.datetime.utcnow().isoformat()
     }
     return health_data, 200 if kafka_status else 503
+
+# Serve swagger UI and static files
+@app.route('/api/swagger.json')
+def serve_swagger_json():
+    return send_from_directory('static', 'swagger.json')
+
+@app.route('/swagger-ui/<path:filename>')
+def serve_swagger_ui(filename):
+    return send_from_directory('templates', filename)
 
 # Add security headers middleware
 @app.after_request
