@@ -6,8 +6,6 @@ from services.kafka_producer import KafkaProducerService
 from services.kafka_consumer import KafkaConsumerService
 from config import Config
 import datetime
-import sys
-import psutil
 import json
 
 logger = logging.getLogger(__name__)
@@ -58,12 +56,6 @@ def validate_app_id(app_id: str) -> bool:
     valid_app_id = Config.APP_ID
     return app_id == valid_app_id
 
-def log_memory_usage():
-    """Log current memory usage"""
-    process = psutil.Process()
-    memory_info = process.memory_info()
-    logger.debug(f"Memory usage - RSS: {memory_info.rss / 1024 / 1024:.2f}MB, VMS: {memory_info.vms / 1024 / 1024:.2f}MB")
-
 @metrics_namespace.route('/app/<string:app_id>/metrics')
 @metrics_namespace.param('app_id', 'Application identifier')
 class MetricsResource(Resource):
@@ -77,7 +69,6 @@ class MetricsResource(Resource):
         """Submit batch metrics data"""
         try:
             logger.debug("Starting metrics batch processing")
-            log_memory_usage()
 
             # Validate app_id
             if not validate_app_id(app_id):
@@ -109,7 +100,6 @@ class MetricsResource(Resource):
                         # Log progress periodically
                         if idx % progress_interval == 0:
                             logger.debug(f"Processing progress: {idx}/{batch_size} metrics")
-                            log_memory_usage()
 
                         # Validate metric structure
                         if not all(key in metric for key in ['payload', 'profileId', 'timestamp']):
@@ -146,7 +136,6 @@ class MetricsResource(Resource):
 
                 # Log final statistics
                 logger.info(f"Batch processing complete - Processed: {processed_count}, Failed: {failed_count}, Total: {batch_size}")
-                log_memory_usage()
 
                 # Validate response serialization
                 try:
