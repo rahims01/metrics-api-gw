@@ -75,61 +75,51 @@ class MetricsResource(Resource):
                 logger.warning(f"Invalid app_id attempt: {app_id}")
                 return {'error': 'Invalid application ID'}, 401
 
-            with processing_time.time():
-                data = request.get_json()
-                logger.debug(f"Request Content-Length: {request.content_length}")
+            data = request.get_json()
+            logger.debug(f"Request Content-Length: {request.content_length}")
 
-                # Validate batch structure
-                if not isinstance(data, dict) or 'metrics' not in data:
-                    logger.error("Invalid metrics batch format")
-                    return {'error': 'Invalid metrics batch format'}, 400
+            # Validate batch structure
+            if not isinstance(data, dict) or 'metrics' not in data:
+                logger.error("Invalid metrics batch format")
+                return {'error': 'Invalid metrics batch format'}, 400
 
-                metrics = data['metrics']
-                batch_size = len(metrics)
-                logger.info(f"Processing batch of {batch_size} metrics")
+            metrics = data['metrics']
+            batch_size = len(metrics)
+            logger.info(f"Processing batch of {batch_size} metrics")
 
-                # Store metrics in consumer service for retrieval
-                kafka_consumer.latest_metrics = metrics.copy()  # Store a copy to avoid reference issues
+            # Store metrics first
+            kafka_consumer.store_metrics(metrics)
+            processed_count = 0
+            failed_count = 0
 
-                processed_count = 0
-                failed_count = 0
-
-                for metric in metrics:
-                    try:
-                        # Update Prometheus counter
-                        metrics_received.inc()
-
-                        # Send to Kafka
-                        if kafka_producer.send_metric(metric):
-                            kafka_metrics_sent.inc()
-                            processed_count += 1
-                        else:
-                            kafka_metrics_failed.inc()
-                            failed_count += 1
-
-                    except Exception as metric_error:
-                        logger.error(f"Error processing metric: {str(metric_error)}")
-                        failed_count += 1
+            # Then send to Kafka if available
+            for metric in metrics:
+                try:
+                    metrics_received.inc()
+                    if kafka_producer.send_metric(metric):
+                        kafka_metrics_sent.inc()
+                        processed_count += 1
+                    else:
                         kafka_metrics_failed.inc()
-                        continue
+                        failed_count += 1
+                except Exception as metric_error:
+                    logger.error(f"Error processing metric: {str(metric_error)}")
+                    failed_count += 1
+                    kafka_metrics_failed.inc()
 
-                response = {
-                    'status': 'accepted',
-                    'metrics_processed': processed_count,
-                    'metrics_failed': failed_count,
-                    'total_metrics': batch_size
-                }
+            response = {
+                'status': 'accepted',
+                'metrics_processed': processed_count,
+                'metrics_failed': failed_count,
+                'total_metrics': batch_size
+            }
 
-                logger.info(f"Batch processing complete - Processed: {processed_count}, Failed: {failed_count}, Total: {batch_size}")
-                status_code = 202 if processed_count > 0 else 400
-                return response, status_code
+            logger.info(f"Batch processing complete - Processed: {processed_count}, Failed: {failed_count}, Total: {batch_size}")
+            return response, 202
 
         except Exception as e:
             logger.error(f"Error processing metrics batch: {str(e)}", exc_info=True)
-            return {
-                'error': 'Internal server error',
-                'message': 'Failed to process metrics batch'
-            }, 500
+            return {'error': 'Internal server error'}, 500
 
     @metrics_namespace.marshal_with(metrics_response)
     @metrics_namespace.response(200, 'Success')
@@ -142,15 +132,6 @@ class MetricsResource(Resource):
                 return {'error': 'Invalid application ID'}, 401
 
             metrics = kafka_consumer.get_latest_metrics()
-
-            # Ensure we have valid metrics data
-            if not metrics:
-                return {
-                    'metrics': [],
-                    'total_count': 0,
-                    'consumer_status': 'connected' if kafka_consumer.is_connected() else 'disconnected'
-                }, 200
-
             return {
                 'metrics': metrics,
                 'total_count': len(metrics),
