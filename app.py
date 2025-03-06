@@ -1,10 +1,16 @@
 import os
+import atexit
 import logging
 from flask import Flask, jsonify
 from flask_cors import CORS
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from prometheus_client import make_wsgi_app, CollectorRegistry
 from flask_restx import Api
-from api.metrics_handler import metrics_namespace
+
 from config import Config
+from services.kafka_producer import KafkaProducerService
+from services.kafka_consumer import KafkaConsumerService
+from api.metrics_handler import metrics_namespace
 
 # Configure logging
 logging.basicConfig(
@@ -26,6 +32,14 @@ def create_app():
         CORS(app)
         logger.info("CORS enabled")
 
+        # Create a separate registry for consumer metrics
+        consumer_registry = CollectorRegistry()
+
+        # Initialize services with the consumer registry
+        kafka_producer = KafkaProducerService()
+        kafka_consumer = KafkaConsumerService(registry=consumer_registry)
+        logger.info("Kafka services initialized")
+
         # Register API routes
         api = Api(
             title='Metrics Collection API',
@@ -43,7 +57,22 @@ def create_app():
         def ping():
             return jsonify({'status': 'ok', 'message': 'Server is running'}), 200
 
-        logger.info("Test endpoint registered")
+        # Add Prometheus WSGI middleware
+        app.wsgi_app = DispatcherMiddleware(
+            app.wsgi_app, 
+            {'/prometheus-metrics': make_wsgi_app(registry=consumer_registry)}
+        )
+        logger.info("Prometheus middleware configured")
+
+        # Register cleanup function
+        @atexit.register
+        def cleanup():
+            """Clean up resources on shutdown"""
+            logger.info("Cleaning up resources...")
+            if kafka_producer:
+                kafka_producer.close()
+            if kafka_consumer:
+                kafka_consumer.close()
 
         logger.info("Application initialization completed successfully")
         return app
