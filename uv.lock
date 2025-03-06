@@ -308,6 +308,39 @@ wheels = [
 ]
 
 [[package]]
+name = "metrics-collection-api"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "email-validator" },
+    { name = "flask" },
+    { name = "flask-cors" },
+    { name = "flask-restx" },
+    { name = "flask-sqlalchemy" },
+    { name = "gunicorn" },
+    { name = "kafka-python" },
+    { name = "prometheus-client" },
+    { name = "psycopg2-binary" },
+    { name = "python-dotenv" },
+    { name = "werkzeug" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "email-validator", specifier = ">=2.2.0" },
+    { name = "flask", specifier = ">=3.1.0" },
+    { name = "flask-cors", specifier = ">=5.0.1" },
+    { name = "flask-restx", specifier = ">=1.3.0" },
+    { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
+    { name = "gunicorn", specifier = ">=23.0.0" },
+    { name = "kafka-python", specifier = ">=2.0.6" },
+    { name = "prometheus-client", specifier = ">=0.21.1" },
+    { name = "psycopg2-binary", specifier = ">=2.9.10" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "werkzeug", specifier = ">=3.1.3" },
+]
+
+[[package]]
 name = "packaging"
 version = "24.2"
 source = { registry = "https://pypi.org/simple" }
@@ -398,39 +431,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/2f/db/98b5c277be99dd18bfd91dd04e1b759cad18d1a338188c936e92f921c7e2/referencing-0.36.2.tar.gz", hash = "sha256:df2e89862cd09deabbdba16944cc3f10feb6b3e6f18e902f7cc25609a34775aa", size = 74744 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/b1/3baf80dc6d2b7bc27a95a67752d0208e410351e3feb4eb78de5f77454d8d/referencing-0.36.2-py3-none-any.whl", hash = "sha256:e8699adbbf8b5c7de96d8ffa0eb5c158b3beafce084968e2ea8bb08c6794dcd0", size = 26775 },
-]
-
-[[package]]
-name = "repl-nix-workspace"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "email-validator" },
-    { name = "flask" },
-    { name = "flask-cors" },
-    { name = "flask-restx" },
-    { name = "flask-sqlalchemy" },
-    { name = "gunicorn" },
-    { name = "kafka-python" },
-    { name = "prometheus-client" },
-    { name = "psycopg2-binary" },
-    { name = "python-dotenv" },
-    { name = "werkzeug" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "email-validator", specifier = ">=2.2.0" },
-    { name = "flask", specifier = ">=3.1.0" },
-    { name = "flask-cors", specifier = ">=5.0.1" },
-    { name = "flask-restx", specifier = ">=1.3.0" },
-    { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
-    { name = "gunicorn", specifier = ">=23.0.0" },
-    { name = "kafka-python", specifier = ">=2.0.6" },
-    { name = "prometheus-client", specifier = ">=0.21.1" },
-    { name = "psycopg2-binary", specifier = ">=2.9.10" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "werkzeug", specifier = ">=3.1.3" },
 ]
 
 [[package]]

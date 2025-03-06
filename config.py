@@ -1,7 +1,7 @@
 import os
-from typing import Any, Optional
 from dotenv import load_dotenv
 import logging.config
+from typing import Any, Optional
 
 # Load environment variables from .env file
 load_dotenv()
@@ -28,7 +28,7 @@ class Config:
     """Application configuration"""
 
     # Environment
-    ENV = get_env_var('FLASK_ENV', 'production')
+    ENV = get_env_var('FLASK_ENV', 'development')
     DEBUG = get_bool_env_var('FLASK_DEBUG', False)
 
     # Flask Configuration
@@ -40,9 +40,10 @@ class Config:
     KAFKA_CLIENT_ID = get_env_var('KAFKA_CLIENT_ID', 'metrics-collector')
 
     # Application Configuration
-    LOG_LEVEL = get_env_var('LOG_LEVEL', 'INFO')
+    LOG_LEVEL = get_env_var('LOG_LEVEL', 'DEBUG')
     METRICS_BATCH_SIZE = get_int_env_var('METRICS_BATCH_SIZE', 100000)
     REQUEST_TIMEOUT = get_int_env_var('REQUEST_TIMEOUT', 5)
+    APP_ID = get_env_var('APP_ID', 'default-app-id')
 
     # Batch Processing Configuration
     MAX_PAYLOAD_SIZE = get_int_env_var('MAX_PAYLOAD_SIZE', 100 * 1024 * 1024)  # 100MB default
@@ -50,8 +51,6 @@ class Config:
     # Security
     CORS_ORIGINS = get_env_var('CORS_ORIGINS', '*').split(',')
 
-    # Application ID for API access control
-    APP_ID = get_env_var('APP_ID', required=True)
 
     # Logging Configuration
     LOGGING_CONFIG = {
@@ -100,3 +99,4 @@ logger.info(f"Maximum batch size: {Config.METRICS_BATCH_SIZE}")
 logger.info(f"Maximum payload size: {Config.MAX_PAYLOAD_SIZE}")
 logger.info(f"Kafka bootstrap servers: {Config.KAFKA_BOOTSTRAP_SERVERS}")
 logger.info(f"Kafka topic: {Config.KAFKA_TOPIC}")
+logger.info(f"App ID: {Config.APP_ID}")

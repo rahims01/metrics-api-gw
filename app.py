@@ -1,10 +1,7 @@
 import os
 import atexit
-import datetime
 import logging
-from typing import Optional
-
-from flask import Flask, send_from_directory, request
+from flask import Flask, request
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from prometheus_client import make_wsgi_app, Counter, Gauge, CollectorRegistry
 
@@ -25,7 +22,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
 
 # Configure max request size (100MB)
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB in bytes
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
 # Initialize services with the consumer registry
 kafka_producer = KafkaProducerService()
@@ -36,9 +33,9 @@ from flask_restx import Api
 api = Api(
     title='Metrics Collection API',
     version='2.0',
-    description='API for collecting and exposing metrics from TypeScript clients',
+    description='API for collecting and exposing metrics from clients',
     doc='/swagger-ui',
-    prefix='/api'  # Add prefix to all routes
+    prefix='/api'
 )
 api.add_namespace(metrics_namespace, path='/v2')
 api.init_app(app)
@@ -59,7 +56,7 @@ def index():
             <div class="mt-4">
                 <h2>Available Endpoints:</h2>
                 <ul class="list-group">
-                    <li class="list-group-item"><a href="/swagger-ui">API Documentation (Swagger UI)</a></li>
+                    <li class="list-group-item"><a href="/swagger-ui">API Documentation</a></li>
                     <li class="list-group-item"><a href="/api/v2/app/default-app-id/health">Health Check</a></li>
                     <li class="list-group-item"><a href="/prometheus-metrics">Prometheus Metrics</a></li>
                 </ul>
@@ -67,24 +64,6 @@ def index():
         </body>
     </html>
     """
-
-# Add error handlers
-@app.errorhandler(404)
-def not_found_error(error):
-    return {'error': 'Not Found', 'message': str(error)}, 404
-
-@app.errorhandler(413)
-def request_entity_too_large(error):
-    return {
-        'error': 'Payload Too Large',
-        'message': 'The request payload exceeds the maximum allowed size (100MB)',
-        'max_size': '100MB'
-    }, 413
-
-@app.errorhandler(500)
-def internal_error(error):
-    logger.error(f"Internal server error: {str(error)}")
-    return {'error': 'Internal Server Error', 'message': 'An unexpected error occurred'}, 500
 
 # Add Prometheus WSGI middleware
 app.wsgi_app = DispatcherMiddleware(
@@ -102,7 +81,6 @@ def cleanup():
         kafka_consumer.close()
 
 if __name__ == '__main__':
-    # Log startup configuration
     logger.info(f"Starting application in {Config.ENV} mode")
     logger.info(f"Debug mode: {Config.DEBUG}")
-    logger.info(f"Log level: {Config.LOG_LEVEL}")
+    app.run(host='0.0.0.0', port=5000, debug=True)
