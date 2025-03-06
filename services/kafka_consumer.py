@@ -10,20 +10,15 @@ logger = logging.getLogger(__name__)
 class KafkaConsumerService:
     def __init__(self, registry: Optional[CollectorRegistry] = None):
         self.consumer: Optional[KafkaConsumer] = None
-        self.dev_mode = Config.ENV == 'development'
         self.latest_metrics: List[Dict] = []  # Store latest metrics
         self.registry = registry or CollectorRegistry()
         self.metric_gauges = {}  # Store metric gauges by name
 
         # Service monitoring metrics
         self.metrics_consumed = Counter('kafka_metrics_consumed_total', 
-                                      'Total metrics consumed from Kafka',
-                                      registry=self.registry)
-
-        if not self.dev_mode:
-            self._initialize_consumer()
-        else:
-            logger.info("Running in development mode - Kafka consumer disabled")
+                                     'Total metrics consumed from Kafka',
+                                     registry=self.registry)
+        self._initialize_consumer()
 
     def _initialize_consumer(self) -> bool:
         """Initialize the Kafka consumer"""
@@ -59,38 +54,10 @@ class KafkaConsumerService:
 
     def get_latest_metrics(self) -> List[Dict]:
         """Retrieve the latest consumed metrics"""
-        if self.dev_mode:
-            # Return sample data in dev mode
-            sample_metrics = [
-                {
-                    "name": "cpu_usage",
-                    "value": 42.0,
-                    "timestamp": "2024-03-06T10:00:00Z",
-                    "tags": {"host": "desktop-1", "environment": "dev"}
-                },
-                {
-                    "name": "memory_usage",
-                    "value": 67.5,
-                    "timestamp": "2024-03-06T10:00:00Z",
-                    "tags": {"host": "desktop-1", "environment": "dev"}
-                }
-            ]
-            # Update Prometheus metrics in dev mode
-            for metric in sample_metrics:
-                gauge = self._create_or_get_gauge(metric['name'], metric.get('tags', {}))
-                if metric.get('tags'):
-                    gauge.labels(**metric['tags']).set(metric['value'])
-                else:
-                    gauge.set(metric['value'])
-            return sample_metrics
         return self.latest_metrics
 
     def start_consuming(self):
         """Start consuming messages from Kafka"""
-        if self.dev_mode:
-            logger.info("Development mode: Kafka consumer not started")
-            return
-
         if not self.consumer and not self._initialize_consumer():
             logger.error("Failed to start Kafka consumer")
             return
@@ -133,8 +100,6 @@ class KafkaConsumerService:
 
     def is_connected(self) -> bool:
         """Check if connected to Kafka"""
-        if self.dev_mode:
-            return True
         return self.consumer is not None
 
     def close(self):

@@ -14,11 +14,7 @@ class KafkaProducerService:
         self.producer: Optional[KafkaProducer] = None
         self.last_connection_attempt = 0
         self.connection_retry_interval = 5  # seconds
-        self.dev_mode = os.getenv('FLASK_ENV', 'production') == 'development'
-        if not self.dev_mode:
-            self._initialize_producer()
-        else:
-            logger.info("Running in development mode - Kafka producer disabled")
+        self._initialize_producer()
 
     def _initialize_producer(self) -> bool:
         """
@@ -54,14 +50,10 @@ class KafkaProducerService:
         Send metric data to Kafka topic
         Returns True if sent successfully, False otherwise
         """
-        if self.dev_mode:
-            logger.debug(f"Dev mode: Simulating metric send: {metric_data}")
-            return True
-
         if not self.producer:
             if not self._initialize_producer():
-                logger.warning("Kafka producer not available, storing metrics in Prometheus only")
-                return True  # Return True to allow API to function without Kafka
+                logger.warning("Kafka producer not available")
+                return False
 
         try:
             if self.producer:  # Double-check as _initialize_producer might have failed
@@ -72,16 +64,15 @@ class KafkaProducerService:
                 # Wait for the message to be delivered
                 future.get(timeout=2)
                 logger.debug(f"Successfully sent metric to Kafka: {metric_data}")
-            return True  # Return True even if Kafka is not available
+                return True
+            return False
         except KafkaError as e:
             logger.error(f"Error sending metric to Kafka: {str(e)}")
             self.producer = None  # Reset producer to trigger reconnection
-            return True  # Return True to allow API to function without Kafka
+            return False
 
     def is_connected(self) -> bool:
         """Check if connected to Kafka"""
-        if self.dev_mode:
-            return True
         return self.producer is not None
 
     def close(self):
