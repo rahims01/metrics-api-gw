@@ -22,7 +22,6 @@ class KafkaProducerService:
         Initialize the Kafka producer with retry mechanism
         Returns True if successfully connected, False otherwise
         """
-        # Don't retry too frequently
         current_time = time.time()
         if (current_time - self.last_connection_attempt) < self.connection_retry_interval:
             return False
