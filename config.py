@@ -1,8 +1,7 @@
 import os
-import socket
-from dotenv import load_dotenv
 import logging.config
 from typing import Any, Optional
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,87 +13,35 @@ def get_env_var(key: str, default: Any = None, required: bool = False) -> Option
         raise ValueError(f"Required environment variable '{key}' is not set")
     return value
 
-def get_bool_env_var(key: str, default: bool = False) -> bool:
-    """Helper to get boolean environment variables"""
-    return str(get_env_var(key, default)).lower() in ('true', '1', 't', 'yes')
-
-def get_int_env_var(key: str, default: int) -> int:
-    """Helper to get integer environment variables"""
-    try:
-        return int(get_env_var(key, default))
-    except (TypeError, ValueError):
-        return default
-
-def validate_kafka_connection(bootstrap_servers: str) -> tuple[bool, str]:
-    """Validate if any Kafka host is reachable"""
-    if not bootstrap_servers:
-        return False, "No Kafka bootstrap servers configured"
-
-    # Split the bootstrap servers string into individual servers
-    servers = bootstrap_servers.split(',')
-    reachable_servers = []
-    unreachable_servers = []
-
-    for server in servers:
-        try:
-            host, port_str = server.strip().split(':')
-            port = int(port_str)
-
-            # Try to resolve the hostname
-            try:
-                ip_address = socket.gethostbyname(host)
-
-                # Try to establish a TCP connection
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)  # 2 second timeout per server
-                result = sock.connect_ex((ip_address, port))
-                sock.close()
-
-                if result == 0:
-                    reachable_servers.append(f"{host}:{port}")
-                else:
-                    unreachable_servers.append(f"{host}:{port} (error code: {result})")
-            except socket.gaierror:
-                unreachable_servers.append(f"{host}:{port} (DNS resolution failed)")
-            except Exception as e:
-                unreachable_servers.append(f"{host}:{port} (error: {str(e)})")
-
-        except ValueError:
-            unreachable_servers.append(f"{server} (invalid format)")
-            continue
-
-    # Generate status message
-    if reachable_servers:
-        status = f"Reachable Kafka servers: {', '.join(reachable_servers)}"
-        if unreachable_servers:
-            status += f"\nUnreachable servers: {', '.join(unreachable_servers)}"
-        return True, status
-    else:
-        return False, f"No reachable Kafka servers. Errors: {', '.join(unreachable_servers)}"
-
 class Config:        
     """Application configuration"""
 
     # Environment
     ENV = get_env_var('FLASK_ENV', 'development')
-    DEBUG = get_bool_env_var('FLASK_DEBUG', False)
+    DEBUG = get_env_var('FLASK_DEBUG', 'True').lower() == 'true'
 
     # Flask Configuration
     SECRET_KEY = get_env_var('SESSION_SECRET', required=True)
 
     # Kafka Configuration
-    KAFKA_BOOTSTRAP_SERVERS = get_env_var('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+    KAFKA_BOOTSTRAP_SERVERS = get_env_var('KAFKA_BOOTSTRAP_SERVERS', required=True)
     KAFKA_TOPIC = get_env_var('KAFKA_TOPIC', 'metrics')
     KAFKA_CLIENT_ID = get_env_var('KAFKA_CLIENT_ID', 'metrics-collector')
 
+    # Kafka Security Configuration (SASL_SSL with GSSAPI)
+    KAFKA_SECURITY_PROTOCOL = 'SASL_SSL'
+    KAFKA_SASL_MECHANISM = 'GSSAPI'
+    KAFKA_SASL_KERBEROS_SERVICE_NAME = 'kafka'
+    KAFKA_SASL_KERBEROS_DOMAIN_NAME = get_env_var('KAFKA_SASL_KERBEROS_DOMAIN_NAME', required=True)
+
+    # Kerberos Configuration
+    KRB5_CONFIG = get_env_var('KRB5_CONFIG', '/etc/krb5.conf')
+    KRB5_KTNAME = get_env_var('KRB5_KTNAME', required=True)
+    KRB5_CLIENT_KTNAME = get_env_var('KRB5_CLIENT_KTNAME', required=True)
+
     # Application Configuration
     LOG_LEVEL = get_env_var('LOG_LEVEL', 'DEBUG')
-    METRICS_BATCH_SIZE = get_int_env_var('METRICS_BATCH_SIZE', 100000)
-    REQUEST_TIMEOUT = get_int_env_var('REQUEST_TIMEOUT', 5)
-    APP_ID = get_env_var('APP_ID', 'default-app-id')
-
-    # Batch Processing Configuration
-    MAX_PAYLOAD_SIZE = get_int_env_var('MAX_PAYLOAD_SIZE', 100 * 1024 * 1024)  # 100MB default
+    METRICS_BATCH_SIZE = 10000  # Maximum number of metrics to store in memory
 
     # Security
     CORS_ORIGINS = get_env_var('CORS_ORIGINS', '*').split(',')
@@ -121,31 +68,10 @@ class Config:
                 'handlers': ['default'],
                 'level': LOG_LEVEL,
                 'propagate': True
-            },
-            'werkzeug': {
-                'handlers': ['default'],
-                'level': 'INFO',
-                'propagate': False
-            },
+            }
         }
     }
 
 # Initialize logging configuration
 logging.config.dictConfig(Config.LOGGING_CONFIG)
-
-# Create logger for this module
 logger = logging.getLogger(__name__)
-
-# Validate Kafka connection
-is_reachable, kafka_status = validate_kafka_connection(Config.KAFKA_BOOTSTRAP_SERVERS)
-
-# Log configuration status
-logger.info(f"Environment: {Config.ENV}")
-logger.info(f"Debug mode: {Config.DEBUG}")
-logger.info(f"Log level: {Config.LOG_LEVEL}")
-logger.info(f"CORS origins: {Config.CORS_ORIGINS}")
-logger.info(f"Metrics batch size: {Config.METRICS_BATCH_SIZE}")
-logger.info(f"Maximum payload size: {Config.MAX_PAYLOAD_SIZE}")
-logger.info(f"Kafka connection status: {kafka_status}")
-logger.info(f"Kafka topic: {Config.KAFKA_TOPIC}")
-logger.info(f"App ID: {Config.APP_ID}")
