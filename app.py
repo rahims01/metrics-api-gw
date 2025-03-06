@@ -1,6 +1,7 @@
 import os
 import atexit
 import logging
+import threading
 from flask import Flask, request
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from prometheus_client import make_wsgi_app, Counter, Gauge, CollectorRegistry
@@ -27,6 +28,13 @@ app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 # Initialize services with the consumer registry
 kafka_producer = KafkaProducerService()
 kafka_consumer = KafkaConsumerService(registry=consumer_registry)
+
+# Start Kafka consumer in a background thread
+def start_consumer_thread():
+    """Start the Kafka consumer in a separate thread"""
+    consumer_thread = threading.Thread(target=kafka_consumer.start_consuming, daemon=True)
+    consumer_thread.start()
+    logger.info("Started Kafka consumer thread")
 
 # Register API routes
 from flask_restx import Api
@@ -83,4 +91,5 @@ def cleanup():
 if __name__ == '__main__':
     logger.info(f"Starting application in {Config.ENV} mode")
     logger.info(f"Debug mode: {Config.DEBUG}")
+    start_consumer_thread()  # Start consumer before running the app
     app.run(host='0.0.0.0', port=5000, debug=True)
