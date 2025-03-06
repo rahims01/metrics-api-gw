@@ -185,8 +185,8 @@ class HealthResource(Resource):
         if not validate_app_id(app_id):
             return {'error': 'Invalid application ID'}, 401
 
-        kafka_status = kafka_producer.is_connected()
-        kafka_consumer_status = kafka_consumer.is_connected()
+        kafka_producer_status = kafka_producer.get_status()
+        kafka_consumer_status = kafka_consumer.get_status()
 
         metrics_stats = {
             'total_received': metrics_received._value.get(),
@@ -195,16 +195,10 @@ class HealthResource(Resource):
         }
 
         return {
-            'status': 'healthy',
+            'status': 'healthy' if kafka_producer_status['status'] == 'connected' and kafka_consumer_status['status'] == 'connected' else 'degraded',
             'components': {
-                'kafka_producer': {
-                    'status': 'connected' if kafka_status else 'disconnected',
-                    'details': 'Development mode enabled' if Config.ENV == 'development' else 'Ready'
-                },
-                'kafka_consumer': {
-                    'status': 'connected' if kafka_consumer_status else 'disconnected',
-                    'details': 'Development mode enabled' if Config.ENV == 'development' else 'Ready'
-                },
+                'kafka_producer': kafka_producer_status,
+                'kafka_consumer': kafka_consumer_status,
                 'metrics_stats': metrics_stats
             },
             'environment': Config.ENV,

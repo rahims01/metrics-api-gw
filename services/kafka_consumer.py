@@ -1,8 +1,8 @@
 import json
 import logging
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from kafka import KafkaConsumer
-from prometheus_client import Counter, Gauge, Histogram, CollectorRegistry
+from prometheus_client import Counter, Gauge, CollectorRegistry
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -13,6 +13,7 @@ class KafkaConsumerService:
         self.latest_metrics: List[Dict] = []  # Store latest metrics
         self.registry = registry or CollectorRegistry()
         self.metric_gauges = {}  # Store metric gauges by name
+        self.connection_details = ""
 
         # Service monitoring metrics
         self.metrics_consumed = Counter('kafka_metrics_consumed_total', 
@@ -23,6 +24,7 @@ class KafkaConsumerService:
     def _initialize_consumer(self) -> bool:
         """Initialize the Kafka consumer"""
         try:
+            logger.info(f"Attempting to connect consumer to Kafka at {Config.KAFKA_BOOTSTRAP_SERVERS}")
             self.consumer = KafkaConsumer(
                 Config.KAFKA_TOPIC,
                 bootstrap_servers=Config.KAFKA_BOOTSTRAP_SERVERS,
@@ -32,14 +34,16 @@ class KafkaConsumerService:
                 auto_offset_reset='latest',
                 enable_auto_commit=True
             )
-            logger.info("Successfully connected Kafka consumer")
+            self.connection_details = "Connected to Kafka successfully"
+            logger.info(self.connection_details)
             return True
         except Exception as e:
-            logger.error(f"Failed to initialize Kafka consumer: {str(e)}")
+            self.connection_details = f"Failed to initialize Kafka consumer: {str(e)}"
+            logger.error(self.connection_details)
             self.consumer = None
             return False
 
-    def _create_or_get_gauge(self, metric_name: str, labels: Dict[str, str] = None) -> Gauge:
+    def _create_or_get_gauge(self, metric_name: str, labels: Optional[Dict[str, str]] = None) -> Gauge:
         """Create or get a Gauge for a metric"""
         gauge_name = f"client_metric_{metric_name}"
         if gauge_name not in self.metric_gauges:
@@ -52,9 +56,16 @@ class KafkaConsumerService:
             )
         return self.metric_gauges[gauge_name]
 
-    def get_latest_metrics(self) -> List[Dict]:
+    def get_latest_metrics(self) -> List[Dict[str, Any]]:
         """Retrieve the latest consumed metrics"""
         return self.latest_metrics
+
+    def get_status(self) -> Dict[str, str]:
+        """Get detailed consumer status"""
+        return {
+            "status": "connected" if self.consumer is not None else "disconnected",
+            "details": self.connection_details
+        }
 
     def start_consuming(self):
         """Start consuming messages from Kafka"""
@@ -63,7 +74,7 @@ class KafkaConsumerService:
             return
 
         try:
-            logger.info("Starting to consume metrics from Kafka")
+            logger.info(f"Starting to consume metrics from topic: {Config.KAFKA_TOPIC}")
             for message in self.consumer:
                 try:
                     metric_data = message.value
@@ -95,6 +106,7 @@ class KafkaConsumerService:
 
         except Exception as e:
             logger.error(f"Error consuming from Kafka: {str(e)}")
+            self.connection_details = f"Consumer error: {str(e)}"
         finally:
             self.close()
 

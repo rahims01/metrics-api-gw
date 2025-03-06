@@ -1,4 +1,5 @@
 import os
+import socket
 from dotenv import load_dotenv
 import logging.config
 from typing import Any, Optional
@@ -23,6 +24,28 @@ def get_int_env_var(key: str, default: int) -> int:
         return int(get_env_var(key, default))
     except (TypeError, ValueError):
         return default
+
+def validate_kafka_connection(host: str, port: int) -> tuple[bool, str]:
+    """Validate if Kafka host is reachable"""
+    try:
+        # Try to resolve the hostname first
+        ip_address = socket.gethostbyname(host)
+        logger.info(f"Resolved Kafka host {host} to IP: {ip_address}")
+
+        # Try to establish a TCP connection
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5)  # 5 second timeout
+        result = sock.connect_ex((ip_address, port))
+        sock.close()
+
+        if result == 0:
+            return True, f"Kafka host {host}:{port} ({ip_address}) is reachable"
+        else:
+            return False, f"Cannot connect to Kafka host {host}:{port} ({ip_address}), error code: {result}"
+    except socket.gaierror:
+        return False, f"Cannot resolve Kafka hostname: {host}"
+    except Exception as e:
+        return False, f"Error checking Kafka connection: {str(e)}"
 
 class Config:        
     """Application configuration"""
@@ -50,7 +73,6 @@ class Config:
 
     # Security
     CORS_ORIGINS = get_env_var('CORS_ORIGINS', '*').split(',')
-
 
     # Logging Configuration
     LOGGING_CONFIG = {
@@ -89,14 +111,18 @@ logging.config.dictConfig(Config.LOGGING_CONFIG)
 # Create logger for this module
 logger = logging.getLogger(__name__)
 
-# Log loaded configuration (excluding sensitive values)
+# Validate Kafka connection
+kafka_host = Config.KAFKA_BOOTSTRAP_SERVERS.split(':')[0]
+kafka_port = int(Config.KAFKA_BOOTSTRAP_SERVERS.split(':')[1])
+is_reachable, kafka_status = validate_kafka_connection(kafka_host, kafka_port)
+
+# Log configuration status
 logger.info(f"Environment: {Config.ENV}")
 logger.info(f"Debug mode: {Config.DEBUG}")
 logger.info(f"Log level: {Config.LOG_LEVEL}")
 logger.info(f"CORS origins: {Config.CORS_ORIGINS}")
 logger.info(f"Metrics batch size: {Config.METRICS_BATCH_SIZE}")
-logger.info(f"Maximum batch size: {Config.METRICS_BATCH_SIZE}")
 logger.info(f"Maximum payload size: {Config.MAX_PAYLOAD_SIZE}")
-logger.info(f"Kafka bootstrap servers: {Config.KAFKA_BOOTSTRAP_SERVERS}")
+logger.info(f"Kafka connection status: {kafka_status}")
 logger.info(f"Kafka topic: {Config.KAFKA_TOPIC}")
 logger.info(f"App ID: {Config.APP_ID}")
