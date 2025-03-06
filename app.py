@@ -32,10 +32,11 @@ kafka_consumer = KafkaConsumerService(registry=consumer_registry)
 from flask_restx import Api
 api = Api(
     title='Metrics Collection API',
-    version='2.0',  # Updated version
-    description='API for collecting and exposing metrics'
+    version='2.0',
+    description='API for collecting and exposing metrics from TypeScript clients',
+    doc='/swagger-ui'
 )
-api.add_namespace(metrics_namespace, path='/api/metrics')
+api.add_namespace(metrics_namespace, path='/api/v2')
 api.init_app(app)
 
 # Root endpoint

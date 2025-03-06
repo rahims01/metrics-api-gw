@@ -11,7 +11,18 @@
     }
   ],
   "paths": {
-    "/metrics": {
+    "/v2/app/{app_id}/metrics": {
+      "parameters": [
+        {
+          "name": "app_id",
+          "in": "path",
+          "required": true,
+          "description": "Application identifier for API access control",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
       "post": {
         "summary": "Submit metrics data",
         "requestBody": {
@@ -19,17 +30,20 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Metric"
+                "$ref": "#/components/schemas/MetricBatch"
               }
             }
           }
         },
         "responses": {
           "202": {
-            "description": "Metric accepted"
+            "description": "Metrics accepted"
           },
           "400": {
             "description": "Invalid request"
+          },
+          "401": {
+            "description": "Invalid application ID"
           },
           "500": {
             "description": "Internal server error"
@@ -50,6 +64,44 @@
               }
             }
           },
+          "401": {
+            "description": "Invalid application ID"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/v2/app/{app_id}/health": {
+      "parameters": [
+        {
+          "name": "app_id",
+          "in": "path",
+          "required": true,
+          "description": "Application identifier for API access control",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Get service health status",
+        "description": "Get detailed health status of all service components",
+        "responses": {
+          "200": {
+            "description": "Service health information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid application ID"
+          },
           "500": {
             "description": "Internal server error"
           }
@@ -59,18 +111,17 @@
   },
   "components": {
     "schemas": {
-      "Metric": {
+      "MetricPayload": {
         "type": "object",
-        "required": ["name", "value", "timestamp"],
+        "required": ["payload", "profileId", "timestamp"],
         "properties": {
-          "name": {
-            "type": "string",
-            "description": "Metric name (e.g., cpu_usage, memory_usage)"
+          "payload": {
+            "type": "object",
+            "description": "Metric payload data"
           },
-          "value": {
-            "type": "number",
-            "format": "float",
-            "description": "Metric value"
+          "profileId": {
+            "type": "string",
+            "description": "Profile identifier"
           },
           "timestamp": {
             "type": "string",
@@ -86,13 +137,26 @@
           }
         }
       },
+      "MetricBatch": {
+        "type": "object",
+        "required": ["metrics"],
+        "properties": {
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetricPayload"
+            },
+            "description": "List of metrics"
+          }
+        }
+      },
       "MetricsResponse": {
         "type": "object",
         "properties": {
           "metrics": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Metric"
+              "$ref": "#/components/schemas/MetricPayload"
             },
             "description": "List of collected metrics"
           },
@@ -104,6 +168,69 @@
             "type": "string",
             "enum": ["connected", "disconnected"],
             "description": "Kafka consumer connection status"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "components", "environment", "timestamp"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["healthy", "degraded"],
+            "description": "Overall service status"
+          },
+          "components": {
+            "type": "object",
+            "properties": {
+              "kafka_producer": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["connected", "disconnected"]
+                  },
+                  "details": {
+                    "type": "string"
+                  }
+                }
+              },
+              "kafka_consumer": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["connected", "disconnected"]
+                  },
+                  "details": {
+                    "type": "string"
+                  }
+                }
+              },
+              "metrics_stats": {
+                "type": "object",
+                "properties": {
+                  "total_received": {
+                    "type": "integer"
+                  },
+                  "successfully_sent": {
+                    "type": "integer"
+                  },
+                  "failed_sends": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "environment": {
+            "type": "string",
+            "description": "Current environment (development/production)"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Health check timestamp"
           }
         }
       }

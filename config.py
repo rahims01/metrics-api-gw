@@ -47,6 +47,9 @@ class Config:
     # Security
     CORS_ORIGINS = get_env_var('CORS_ORIGINS', '*').split(',')
 
+    # Application ID for API access control
+    APP_ID = get_env_var('APP_ID', required=True)
+
     # Logging Configuration
     LOGGING_CONFIG = {
         'version': 1,
