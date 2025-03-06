@@ -25,6 +25,8 @@ class KafkaConsumerService:
         """Initialize the Kafka consumer"""
         try:
             logger.info(f"Attempting to connect consumer to Kafka at {Config.KAFKA_BOOTSTRAP_SERVERS}")
+            logger.debug(f"Consumer configuration: topic={Config.KAFKA_TOPIC}, client_id={Config.KAFKA_CLIENT_ID}-consumer")
+
             self.consumer = KafkaConsumer(
                 Config.KAFKA_TOPIC,
                 bootstrap_servers=Config.KAFKA_BOOTSTRAP_SERVERS,
@@ -39,7 +41,7 @@ class KafkaConsumerService:
             return True
         except Exception as e:
             self.connection_details = f"Failed to initialize Kafka consumer: {str(e)}"
-            logger.error(self.connection_details)
+            logger.error(self.connection_details, exc_info=True)
             self.consumer = None
             return False
 
@@ -75,37 +77,49 @@ class KafkaConsumerService:
 
         try:
             logger.info(f"Starting to consume metrics from topic: {Config.KAFKA_TOPIC}")
+            logger.debug("Consumer loop starting - waiting for messages...")
+
             for message in self.consumer:
                 try:
+                    logger.debug(f"Received message from partition={message.partition}, offset={message.offset}")
                     metric_data = message.value
-                    if isinstance(metric_data, dict) and 'name' in metric_data and 'value' in metric_data:
-                        # Update Prometheus metrics
-                        self.metrics_consumed.inc()
 
-                        # Create or get Gauge for this metric
-                        gauge = self._create_or_get_gauge(
-                            metric_data['name'], 
-                            metric_data.get('tags', {})
-                        )
+                    if not isinstance(metric_data, dict):
+                        logger.warning(f"Invalid message format - expected dict, got {type(metric_data)}")
+                        continue
 
-                        # Set Gauge value with labels if present
-                        if metric_data.get('tags'):
-                            gauge.labels(**metric_data['tags']).set(float(metric_data['value']))
-                        else:
-                            gauge.set(float(metric_data['value']))
+                    if 'name' not in metric_data or 'value' not in metric_data:
+                        logger.warning(f"Missing required fields in metric data: {metric_data}")
+                        continue
 
-                        # Store the metric
-                        self.latest_metrics.append(metric_data)
-                        # Keep only the last 100 metrics
-                        if len(self.latest_metrics) > 100:
-                            self.latest_metrics.pop(0)
+                    # Update Prometheus metrics
+                    self.metrics_consumed.inc()
+                    logger.debug(f"Processing metric: name={metric_data.get('name')}, value={metric_data.get('value')}")
 
-                        logger.debug(f"Processed metric: {metric_data['name']} = {metric_data['value']}")
+                    # Create or get Gauge for this metric
+                    gauge = self._create_or_get_gauge(
+                        metric_data['name'], 
+                        metric_data.get('tags', {})
+                    )
+
+                    # Set Gauge value with labels if present
+                    if metric_data.get('tags'):
+                        gauge.labels(**metric_data['tags']).set(float(metric_data['value']))
+                    else:
+                        gauge.set(float(metric_data['value']))
+
+                    # Store the metric
+                    self.latest_metrics.append(metric_data)
+                    # Keep only the last 100 metrics
+                    if len(self.latest_metrics) > 100:
+                        self.latest_metrics.pop(0)
+
+                    logger.debug(f"Successfully processed metric: {metric_data['name']} = {metric_data['value']}")
                 except Exception as e:
-                    logger.error(f"Error processing metric: {str(e)}")
+                    logger.error(f"Error processing metric: {str(e)}", exc_info=True)
 
         except Exception as e:
-            logger.error(f"Error consuming from Kafka: {str(e)}")
+            logger.error(f"Error consuming from Kafka: {str(e)}", exc_info=True)
             self.connection_details = f"Consumer error: {str(e)}"
         finally:
             self.close()
