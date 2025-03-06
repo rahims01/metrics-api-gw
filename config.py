@@ -41,8 +41,11 @@ class Config:
 
     # Application Configuration
     LOG_LEVEL = get_env_var('LOG_LEVEL', 'INFO')
-    METRICS_BATCH_SIZE = get_int_env_var('METRICS_BATCH_SIZE', 100)
+    METRICS_BATCH_SIZE = get_int_env_var('METRICS_BATCH_SIZE', 100000)
     REQUEST_TIMEOUT = get_int_env_var('REQUEST_TIMEOUT', 5)
+
+    # Batch Processing Configuration
+    MAX_PAYLOAD_SIZE = get_int_env_var('MAX_PAYLOAD_SIZE', 100 * 1024 * 1024)  # 100MB default
 
     # Security
     CORS_ORIGINS = get_env_var('CORS_ORIGINS', '*').split(',')
@@ -93,5 +96,7 @@ logger.info(f"Debug mode: {Config.DEBUG}")
 logger.info(f"Log level: {Config.LOG_LEVEL}")
 logger.info(f"CORS origins: {Config.CORS_ORIGINS}")
 logger.info(f"Metrics batch size: {Config.METRICS_BATCH_SIZE}")
+logger.info(f"Maximum batch size: {Config.METRICS_BATCH_SIZE}")
+logger.info(f"Maximum payload size: {Config.MAX_PAYLOAD_SIZE}")
 logger.info(f"Kafka bootstrap servers: {Config.KAFKA_BOOTSTRAP_SERVERS}")
 logger.info(f"Kafka topic: {Config.KAFKA_TOPIC}")

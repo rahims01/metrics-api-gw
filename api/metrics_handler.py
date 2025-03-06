@@ -1,11 +1,12 @@
 import logging
-from flask import request
+from flask import request, current_app
 from flask_restx import Namespace, Resource, fields
 from prometheus_client import Counter, Histogram, Gauge
 from services.kafka_producer import KafkaProducerService
 from services.kafka_consumer import KafkaConsumerService
 from config import Config
 import datetime
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ class MetricsResource(Resource):
     @metrics_namespace.response(202, 'Metrics accepted')
     @metrics_namespace.response(400, 'Invalid request')
     @metrics_namespace.response(401, 'Invalid application ID')
+    @metrics_namespace.response(413, 'Payload too large')
     @metrics_namespace.response(500, 'Internal server error')
     def post(self, app_id):
         """Submit batch metrics data"""
@@ -74,29 +76,51 @@ class MetricsResource(Resource):
                 if not isinstance(data, dict) or 'metrics' not in data:
                     return {'error': 'Invalid metrics batch format'}, 400
 
+                metrics = data['metrics']
+                batch_size = len(metrics)
+                logger.info(f"Processing batch of {batch_size} metrics")
+
+                if batch_size > Config.METRICS_BATCH_SIZE:
+                    logger.warning(f"Large batch received: {batch_size} metrics")
+
                 processed_count = 0
-                for metric in data['metrics']:
-                    # Validate metric structure
-                    if not all(key in metric for key in ['payload', 'profileId', 'timestamp']):
-                        continue
+                failed_count = 0
+                for metric in metrics:
+                    try:
+                        # Validate metric structure
+                        if not all(key in metric for key in ['payload', 'profileId', 'timestamp']):
+                            failed_count += 1
+                            continue
 
-                    # Update Prometheus counter
-                    metrics_received.inc()
+                        # Update Prometheus counter
+                        metrics_received.inc()
 
-                    # Send to Kafka
-                    if kafka_producer.send_metric(metric):
-                        kafka_metrics_sent.inc()
-                        processed_count += 1
-                    else:
+                        # Send to Kafka
+                        if kafka_producer.send_metric(metric):
+                            kafka_metrics_sent.inc()
+                            processed_count += 1
+                        else:
+                            kafka_metrics_failed.inc()
+                            failed_count += 1
+
+                    except Exception as metric_error:
+                        logger.error(f"Error processing individual metric: {str(metric_error)}")
+                        failed_count += 1
                         kafka_metrics_failed.inc()
+                        continue  # Continue with next metric
 
                 # Update Kafka connection status
                 kafka_connection_status.set(1.0 if kafka_producer.is_connected() else 0.0)
 
-                return {
+                response = {
                     'status': 'accepted',
-                    'message': f'Processed {processed_count} metrics successfully'
-                }, 202
+                    'metrics_processed': processed_count,
+                    'metrics_failed': failed_count,
+                    'total_metrics': batch_size
+                }
+
+                status_code = 202 if processed_count > 0 else 400
+                return response, status_code
 
         except Exception as e:
             logger.error(f"Error processing metrics batch: {str(e)}", exc_info=True)

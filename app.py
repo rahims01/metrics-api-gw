@@ -4,7 +4,7 @@ import datetime
 import logging
 from typing import Optional
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from prometheus_client import make_wsgi_app, Counter, Gauge, CollectorRegistry
 
@@ -23,6 +23,9 @@ consumer_registry = CollectorRegistry()
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
+
+# Configure max request size (100MB)
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB in bytes
 
 # Initialize services with the consumer registry
 kafka_producer = KafkaProducerService()
@@ -69,6 +72,14 @@ def index():
 @app.errorhandler(404)
 def not_found_error(error):
     return {'error': 'Not Found', 'message': str(error)}, 404
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return {
+        'error': 'Payload Too Large',
+        'message': 'The request payload exceeds the maximum allowed size (100MB)',
+        'max_size': '100MB'
+    }, 413
 
 @app.errorhandler(500)
 def internal_error(error):
