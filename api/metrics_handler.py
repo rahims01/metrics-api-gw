@@ -88,14 +88,11 @@ class MetricsResource(Resource):
                 batch_size = len(metrics)
                 logger.info(f"Processing batch of {batch_size} metrics")
 
-                if batch_size > Config.METRICS_BATCH_SIZE:
-                    logger.warning(f"Large batch received: {batch_size} metrics")
+                # Store metrics in consumer service for retrieval
+                kafka_consumer.latest_metrics = metrics.copy()  # Store a copy to avoid reference issues
 
                 processed_count = 0
                 failed_count = 0
-
-                # Store metrics in consumer service for retrieval
-                kafka_consumer.latest_metrics = metrics
 
                 for metric in metrics:
                     try:
@@ -115,9 +112,6 @@ class MetricsResource(Resource):
                         failed_count += 1
                         kafka_metrics_failed.inc()
                         continue
-
-                # Update Kafka connection status
-                kafka_connection_status.set(1.0 if kafka_producer.is_connected() else 0.0)
 
                 response = {
                     'status': 'accepted',
@@ -143,16 +137,26 @@ class MetricsResource(Resource):
     @metrics_namespace.response(500, 'Internal server error')
     def get(self, app_id):
         """Retrieve consumed metrics"""
-        if not validate_app_id(app_id):
-            return {'error': 'Invalid application ID'}, 401
-
         try:
+            if not validate_app_id(app_id):
+                return {'error': 'Invalid application ID'}, 401
+
             metrics = kafka_consumer.get_latest_metrics()
+
+            # Ensure we have valid metrics data
+            if not metrics:
+                return {
+                    'metrics': [],
+                    'total_count': 0,
+                    'consumer_status': 'connected' if kafka_consumer.is_connected() else 'disconnected'
+                }, 200
+
             return {
                 'metrics': metrics,
                 'total_count': len(metrics),
                 'consumer_status': 'connected' if kafka_consumer.is_connected() else 'disconnected'
             }, 200
+
         except Exception as e:
             logger.error(f"Error retrieving metrics: {str(e)}", exc_info=True)
             return {'error': 'Internal server error'}, 500
