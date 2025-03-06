@@ -25,27 +25,52 @@ def get_int_env_var(key: str, default: int) -> int:
     except (TypeError, ValueError):
         return default
 
-def validate_kafka_connection(host: str, port: int) -> tuple[bool, str]:
-    """Validate if Kafka host is reachable"""
-    try:
-        # Try to resolve the hostname first
-        ip_address = socket.gethostbyname(host)
-        logger.info(f"Resolved Kafka host {host} to IP: {ip_address}")
+def validate_kafka_connection(bootstrap_servers: str) -> tuple[bool, str]:
+    """Validate if any Kafka host is reachable"""
+    if not bootstrap_servers:
+        return False, "No Kafka bootstrap servers configured"
 
-        # Try to establish a TCP connection
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5)  # 5 second timeout
-        result = sock.connect_ex((ip_address, port))
-        sock.close()
+    # Split the bootstrap servers string into individual servers
+    servers = bootstrap_servers.split(',')
+    reachable_servers = []
+    unreachable_servers = []
 
-        if result == 0:
-            return True, f"Kafka host {host}:{port} ({ip_address}) is reachable"
-        else:
-            return False, f"Cannot connect to Kafka host {host}:{port} ({ip_address}), error code: {result}"
-    except socket.gaierror:
-        return False, f"Cannot resolve Kafka hostname: {host}"
-    except Exception as e:
-        return False, f"Error checking Kafka connection: {str(e)}"
+    for server in servers:
+        try:
+            host, port_str = server.strip().split(':')
+            port = int(port_str)
+
+            # Try to resolve the hostname
+            try:
+                ip_address = socket.gethostbyname(host)
+
+                # Try to establish a TCP connection
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)  # 2 second timeout per server
+                result = sock.connect_ex((ip_address, port))
+                sock.close()
+
+                if result == 0:
+                    reachable_servers.append(f"{host}:{port}")
+                else:
+                    unreachable_servers.append(f"{host}:{port} (error code: {result})")
+            except socket.gaierror:
+                unreachable_servers.append(f"{host}:{port} (DNS resolution failed)")
+            except Exception as e:
+                unreachable_servers.append(f"{host}:{port} (error: {str(e)})")
+
+        except ValueError:
+            unreachable_servers.append(f"{server} (invalid format)")
+            continue
+
+    # Generate status message
+    if reachable_servers:
+        status = f"Reachable Kafka servers: {', '.join(reachable_servers)}"
+        if unreachable_servers:
+            status += f"\nUnreachable servers: {', '.join(unreachable_servers)}"
+        return True, status
+    else:
+        return False, f"No reachable Kafka servers. Errors: {', '.join(unreachable_servers)}"
 
 class Config:        
     """Application configuration"""
@@ -112,9 +137,7 @@ logging.config.dictConfig(Config.LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 # Validate Kafka connection
-kafka_host = Config.KAFKA_BOOTSTRAP_SERVERS.split(':')[0]
-kafka_port = int(Config.KAFKA_BOOTSTRAP_SERVERS.split(':')[1])
-is_reachable, kafka_status = validate_kafka_connection(kafka_host, kafka_port)
+is_reachable, kafka_status = validate_kafka_connection(Config.KAFKA_BOOTSTRAP_SERVERS)
 
 # Log configuration status
 logger.info(f"Environment: {Config.ENV}")
