@@ -34,9 +34,10 @@ api = Api(
     title='Metrics Collection API',
     version='2.0',
     description='API for collecting and exposing metrics from TypeScript clients',
-    doc='/swagger-ui'
+    doc='/swagger-ui',
+    prefix='/api'  # Add prefix to all routes
 )
-api.add_namespace(metrics_namespace, path='/api/v2')
+api.add_namespace(metrics_namespace, path='/v2')
 api.init_app(app)
 
 # Root endpoint
@@ -55,61 +56,14 @@ def index():
             <div class="mt-4">
                 <h2>Available Endpoints:</h2>
                 <ul class="list-group">
-                    <li class="list-group-item"><a href="/api/swagger-ui">API Documentation (Swagger UI)</a></li>
-                    <li class="list-group-item"><a href="/health">Health Check</a></li>
+                    <li class="list-group-item"><a href="/swagger-ui">API Documentation (Swagger UI)</a></li>
+                    <li class="list-group-item"><a href="/api/v2/app/default-app-id/health">Health Check</a></li>
                     <li class="list-group-item"><a href="/prometheus-metrics">Prometheus Metrics</a></li>
                 </ul>
             </div>
         </body>
     </html>
     """
-
-# Health check endpoint
-@app.route('/health')
-def health_check():
-    """Global health check endpoint with detailed component status"""
-    # In dev mode, both services report as connected
-    kafka_producer_status = kafka_producer.is_connected()
-    kafka_consumer_status = kafka_consumer.is_connected()
-
-    health_data = {
-        'status': 'healthy',  # In dev mode, always healthy
-        'components': {
-            'kafka_producer': {
-                'status': 'connected' if kafka_producer_status else 'disconnected',
-                'details': 'Development mode enabled' if Config.ENV == 'development' else 'Ready for metric collection'
-            },
-            'kafka_consumer': {
-                'status': 'connected' if kafka_consumer_status else 'disconnected',
-                'details': 'Development mode enabled' if Config.ENV == 'development' else 'Processing metrics'
-            },
-            'api': {
-                'status': 'healthy',
-                'version': '2.0'
-            }
-        },
-        'environment': Config.ENV,
-        'timestamp': datetime.datetime.utcnow().isoformat()
-    }
-    return health_data, 200
-
-# Serve swagger UI and static files
-@app.route('/api/swagger.json')
-def serve_swagger_json():
-    return send_from_directory('static', 'swagger.json')
-
-@app.route('/swagger-ui/<path:filename>')
-def serve_swagger_ui(filename):
-    return send_from_directory('templates', filename)
-
-# Add security headers middleware
-@app.after_request
-def add_security_headers(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    return response
 
 # Add error handlers
 @app.errorhandler(404)
@@ -121,12 +75,7 @@ def internal_error(error):
     logger.error(f"Internal server error: {str(error)}")
     return {'error': 'Internal Server Error', 'message': 'An unexpected error occurred'}, 500
 
-# Log all registered routes
-logger.info("Registered routes:")
-for rule in app.url_map.iter_rules():
-    logger.info(f"Route: {rule.rule} -> {rule.endpoint}")
-
-# Add Prometheus WSGI middleware to expose only consumer metrics
+# Add Prometheus WSGI middleware
 app.wsgi_app = DispatcherMiddleware(
     app.wsgi_app, 
     {'/prometheus-metrics': make_wsgi_app(registry=consumer_registry)}
