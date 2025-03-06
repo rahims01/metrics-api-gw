@@ -53,7 +53,8 @@ kafka_consumer = KafkaConsumerService()
 
 def validate_app_id(app_id: str) -> bool:
     """Validate the app_id against configured value"""
-    return True  # Implement your validation logic here
+    valid_app_id = Config.APP_ID
+    return app_id == valid_app_id
 
 @metrics_namespace.route('/app/<string:app_id>/metrics')
 @metrics_namespace.param('app_id', 'Application identifier')

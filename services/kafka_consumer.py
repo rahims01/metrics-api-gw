@@ -33,9 +33,6 @@ class KafkaConsumerService:
                 client_id=f"{Config.KAFKA_CLIENT_ID}-consumer",
                 group_id=f"{Config.KAFKA_CLIENT_ID}-metrics-group",
                 value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-                security_protocol=Config.KAFKA_SECURITY_PROTOCOL,
-                sasl_mechanism=Config.KAFKA_SASL_MECHANISM,
-                sasl_kerberos_service_name=Config.KAFKA_SASL_KERBEROS_SERVICE_NAME,
                 auto_offset_reset='latest',
                 enable_auto_commit=True
             )

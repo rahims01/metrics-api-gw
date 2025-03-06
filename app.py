@@ -41,7 +41,7 @@ from flask_restx import Api
 api = Api(
     title='Metrics Collection API',
     version='2.0',
-    description='API for collecting and exposing metrics from TypeScript clients',
+    description='API for collecting and exposing metrics from clients',
     doc='/swagger-ui',
     prefix='/api'
 )
