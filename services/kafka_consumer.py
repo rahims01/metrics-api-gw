@@ -13,12 +13,25 @@ class KafkaConsumerService:
         self.dev_mode = Config.ENV == 'development'
         self.latest_metrics: List[Dict] = []  # Store latest metrics
         self.registry = registry or CollectorRegistry()
-        self.metric_gauges = {}  # Store metric gauges by name
 
         # Service monitoring metrics
         self.metrics_consumed = Counter('kafka_metrics_consumed_total', 
-                                      'Total metrics consumed from Kafka',
-                                      registry=self.registry)
+                                    'Total metrics consumed from Kafka',
+                                    registry=self.registry)
+
+        # Additional metrics for better monitoring
+        self.batch_size = Gauge('kafka_batch_size_current',
+                             'Current batch size of metrics being processed',
+                             registry=self.registry)
+        self.consumer_health = Gauge('kafka_consumer_health',
+                                  'Consumer health status (1=healthy, 0=unhealthy)',
+                                  registry=self.registry)
+        self.last_metrics_timestamp = Gauge('kafka_last_metric_timestamp',
+                                        'Timestamp of last processed metric',
+                                        registry=self.registry)
+        self.processing_errors = Counter('kafka_processing_errors_total',
+                                     'Total number of processing errors',
+                                     registry=self.registry)
 
         if not self.dev_mode:
             self._initialize_consumer()
@@ -60,28 +73,25 @@ class KafkaConsumerService:
     def get_latest_metrics(self) -> List[Dict]:
         """Retrieve the latest consumed metrics"""
         if self.dev_mode:
-            # Return sample data in dev mode
+            # Return actual stored metrics if available, otherwise return sample data
+            if self.latest_metrics:
+                return self.latest_metrics
+
+            # Return sample data only if no actual metrics exist
             sample_metrics = [
                 {
-                    "name": "cpu_usage",
-                    "value": 42.0,
+                    "payload": {"type": "system", "value": 42.0},
+                    "profileId": "sample-profile",
                     "timestamp": "2024-03-06T10:00:00Z",
                     "tags": {"host": "desktop-1", "environment": "dev"}
                 },
                 {
-                    "name": "memory_usage",
-                    "value": 67.5,
+                    "payload": {"type": "memory", "value": 67.5},
+                    "profileId": "sample-profile",
                     "timestamp": "2024-03-06T10:00:00Z",
                     "tags": {"host": "desktop-1", "environment": "dev"}
                 }
             ]
-            # Update Prometheus metrics in dev mode
-            for metric in sample_metrics:
-                gauge = self._create_or_get_gauge(metric['name'], metric.get('tags', {}))
-                if metric.get('tags'):
-                    gauge.labels(**metric['tags']).set(metric['value'])
-                else:
-                    gauge.set(metric['value'])
             return sample_metrics
         return self.latest_metrics
 

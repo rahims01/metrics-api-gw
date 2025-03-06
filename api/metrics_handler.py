@@ -93,20 +93,12 @@ class MetricsResource(Resource):
 
                 processed_count = 0
                 failed_count = 0
-                progress_interval = max(1000, batch_size // 10)  # Log every 1000 metrics or 10% of batch
 
-                for idx, metric in enumerate(metrics, 1):
+                # Store metrics in consumer service for retrieval
+                kafka_consumer.latest_metrics = metrics
+
+                for metric in metrics:
                     try:
-                        # Log progress periodically
-                        if idx % progress_interval == 0:
-                            logger.debug(f"Processing progress: {idx}/{batch_size} metrics")
-
-                        # Validate metric structure
-                        if not all(key in metric for key in ['payload', 'profileId', 'timestamp']):
-                            logger.debug(f"Invalid metric structure at index {idx}")
-                            failed_count += 1
-                            continue
-
                         # Update Prometheus counter
                         metrics_received.inc()
 
@@ -119,7 +111,7 @@ class MetricsResource(Resource):
                             failed_count += 1
 
                     except Exception as metric_error:
-                        logger.error(f"Error processing metric at index {idx}: {str(metric_error)}")
+                        logger.error(f"Error processing metric: {str(metric_error)}")
                         failed_count += 1
                         kafka_metrics_failed.inc()
                         continue
@@ -134,16 +126,7 @@ class MetricsResource(Resource):
                     'total_metrics': batch_size
                 }
 
-                # Log final statistics
                 logger.info(f"Batch processing complete - Processed: {processed_count}, Failed: {failed_count}, Total: {batch_size}")
-
-                # Validate response serialization
-                try:
-                    json.dumps(response)
-                except Exception as e:
-                    logger.error(f"Response serialization error: {str(e)}")
-                    return {'error': 'Internal server error', 'message': 'Failed to serialize response'}, 500
-
                 status_code = 202 if processed_count > 0 else 400
                 return response, status_code
 
