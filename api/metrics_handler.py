@@ -7,8 +7,13 @@ from services.kafka_consumer import KafkaConsumerService
 from config import Config
 import datetime
 import sys
+import psutil
+import json
 
 logger = logging.getLogger(__name__)
+
+# Configure debug logging
+logger.setLevel(logging.DEBUG)
 
 metrics_namespace = Namespace('v2', description='API v2 operations')
 
@@ -53,6 +58,12 @@ def validate_app_id(app_id: str) -> bool:
     valid_app_id = Config.APP_ID
     return app_id == valid_app_id
 
+def log_memory_usage():
+    """Log current memory usage"""
+    process = psutil.Process()
+    memory_info = process.memory_info()
+    logger.debug(f"Memory usage - RSS: {memory_info.rss / 1024 / 1024:.2f}MB, VMS: {memory_info.vms / 1024 / 1024:.2f}MB")
+
 @metrics_namespace.route('/app/<string:app_id>/metrics')
 @metrics_namespace.param('app_id', 'Application identifier')
 class MetricsResource(Resource):
@@ -64,16 +75,22 @@ class MetricsResource(Resource):
     @metrics_namespace.response(500, 'Internal server error')
     def post(self, app_id):
         """Submit batch metrics data"""
-        # Validate app_id
-        if not validate_app_id(app_id):
-            return {'error': 'Invalid application ID'}, 401
-
         try:
+            logger.debug("Starting metrics batch processing")
+            log_memory_usage()
+
+            # Validate app_id
+            if not validate_app_id(app_id):
+                logger.warning(f"Invalid app_id attempt: {app_id}")
+                return {'error': 'Invalid application ID'}, 401
+
             with processing_time.time():
                 data = request.get_json()
+                logger.debug(f"Request Content-Length: {request.content_length}")
 
                 # Validate batch structure
                 if not isinstance(data, dict) or 'metrics' not in data:
+                    logger.error("Invalid metrics batch format")
                     return {'error': 'Invalid metrics batch format'}, 400
 
                 metrics = data['metrics']
@@ -85,10 +102,18 @@ class MetricsResource(Resource):
 
                 processed_count = 0
                 failed_count = 0
-                for metric in metrics:
+                progress_interval = max(1000, batch_size // 10)  # Log every 1000 metrics or 10% of batch
+
+                for idx, metric in enumerate(metrics, 1):
                     try:
+                        # Log progress periodically
+                        if idx % progress_interval == 0:
+                            logger.debug(f"Processing progress: {idx}/{batch_size} metrics")
+                            log_memory_usage()
+
                         # Validate metric structure
                         if not all(key in metric for key in ['payload', 'profileId', 'timestamp']):
+                            logger.debug(f"Invalid metric structure at index {idx}")
                             failed_count += 1
                             continue
 
@@ -104,10 +129,10 @@ class MetricsResource(Resource):
                             failed_count += 1
 
                     except Exception as metric_error:
-                        logger.error(f"Error processing individual metric: {str(metric_error)}")
+                        logger.error(f"Error processing metric at index {idx}: {str(metric_error)}")
                         failed_count += 1
                         kafka_metrics_failed.inc()
-                        continue  # Continue with next metric
+                        continue
 
                 # Update Kafka connection status
                 kafka_connection_status.set(1.0 if kafka_producer.is_connected() else 0.0)
@@ -118,6 +143,17 @@ class MetricsResource(Resource):
                     'metrics_failed': failed_count,
                     'total_metrics': batch_size
                 }
+
+                # Log final statistics
+                logger.info(f"Batch processing complete - Processed: {processed_count}, Failed: {failed_count}, Total: {batch_size}")
+                log_memory_usage()
+
+                # Validate response serialization
+                try:
+                    json.dumps(response)
+                except Exception as e:
+                    logger.error(f"Response serialization error: {str(e)}")
+                    return {'error': 'Internal server error', 'message': 'Failed to serialize response'}, 500
 
                 status_code = 202 if processed_count > 0 else 400
                 return response, status_code
