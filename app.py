@@ -6,7 +6,7 @@ from typing import Optional
 
 from flask import Flask, send_from_directory
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
-from prometheus_client import make_wsgi_app, Counter, Gauge
+from prometheus_client import make_wsgi_app, Counter, Gauge, CollectorRegistry
 
 from config import Config
 from services.kafka_producer import KafkaProducerService
@@ -17,13 +17,16 @@ from api.metrics_handler import metrics_namespace
 logging.basicConfig(level=Config.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
+# Create a separate registry for consumer metrics
+consumer_registry = CollectorRegistry()
+
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
 
-# Initialize services
+# Initialize services with the consumer registry
 kafka_producer = KafkaProducerService()
-kafka_consumer = KafkaConsumerService()
+kafka_consumer = KafkaConsumerService(registry=consumer_registry)
 
 # Register API routes
 from flask_restx import Api
@@ -122,10 +125,10 @@ logger.info("Registered routes:")
 for rule in app.url_map.iter_rules():
     logger.info(f"Route: {rule.rule} -> {rule.endpoint}")
 
-# Add Prometheus WSGI middleware to expose metrics
+# Add Prometheus WSGI middleware to expose only consumer metrics
 app.wsgi_app = DispatcherMiddleware(
     app.wsgi_app, 
-    {'/prometheus-metrics': make_wsgi_app()}
+    {'/prometheus-metrics': make_wsgi_app(registry=consumer_registry)}
 )
 
 # Register cleanup function

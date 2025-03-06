@@ -3,6 +3,7 @@ from flask import request
 from flask_restx import Namespace, Resource, fields
 from prometheus_client import Counter, Histogram, Gauge
 from services.kafka_producer import KafkaProducerService
+from services.kafka_consumer import KafkaConsumerService
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,15 @@ metric_model = metrics_namespace.model('Metric', {
     'tags': fields.Raw(description='Additional tags')
 })
 
+# Response model for GET metrics
+metrics_response = metrics_namespace.model('MetricsResponse', {
+    'metrics': fields.List(fields.Nested(metric_model), description='List of consumed metrics'),
+    'total_count': fields.Integer(description='Total number of metrics'),
+    'consumer_status': fields.String(description='Kafka consumer status')
+})
+
 kafka_producer = KafkaProducerService()
+kafka_consumer = KafkaConsumerService()
 
 @metrics_namespace.route('')
 class MetricsResource(Resource):
@@ -82,6 +91,25 @@ class MetricsResource(Resource):
             return {
                 'error': 'Internal server error',
                 'message': 'Failed to process metric'
+            }, 500
+
+    @metrics_namespace.marshal_with(metrics_response)
+    @metrics_namespace.response(200, 'Success')
+    @metrics_namespace.response(500, 'Internal server error')
+    def get(self):
+        """Retrieve consumed metrics"""
+        try:
+            metrics = kafka_consumer.get_latest_metrics()
+            return {
+                'metrics': metrics,
+                'total_count': len(metrics),
+                'consumer_status': 'connected' if kafka_consumer.is_connected() else 'disconnected'
+            }, 200
+        except Exception as e:
+            logger.error(f"Error retrieving metrics: {str(e)}", exc_info=True)
+            return {
+                'error': 'Internal server error',
+                'message': 'Failed to retrieve metrics'
             }, 500
 
 @metrics_namespace.route('/health')
