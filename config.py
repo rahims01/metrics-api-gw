@@ -30,7 +30,6 @@ def validate_kafka_connection(bootstrap_servers: str) -> tuple[bool, str]:
     if not bootstrap_servers:
         return False, "No Kafka bootstrap servers configured"
 
-    # Split the bootstrap servers string into individual servers
     servers = bootstrap_servers.split(',')
     reachable_servers = []
     unreachable_servers = []
@@ -40,13 +39,10 @@ def validate_kafka_connection(bootstrap_servers: str) -> tuple[bool, str]:
             host, port_str = server.strip().split(':')
             port = int(port_str)
 
-            # Try to resolve the hostname
             try:
                 ip_address = socket.gethostbyname(host)
-
-                # Try to establish a TCP connection
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)  # 2 second timeout per server
+                sock.settimeout(2)
                 result = sock.connect_ex((ip_address, port))
                 sock.close()
 
@@ -63,7 +59,6 @@ def validate_kafka_connection(bootstrap_servers: str) -> tuple[bool, str]:
             unreachable_servers.append(f"{server} (invalid format)")
             continue
 
-    # Generate status message
     if reachable_servers:
         status = f"Reachable Kafka servers: {', '.join(reachable_servers)}"
         if unreachable_servers:
@@ -72,7 +67,7 @@ def validate_kafka_connection(bootstrap_servers: str) -> tuple[bool, str]:
     else:
         return False, f"No reachable Kafka servers. Errors: {', '.join(unreachable_servers)}"
 
-class Config:        
+class Config:
     """Application configuration"""
 
     # Environment
@@ -86,11 +81,15 @@ class Config:
     KAFKA_BOOTSTRAP_SERVERS = get_env_var('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
     KAFKA_TOPIC = get_env_var('KAFKA_TOPIC', 'metrics')
     KAFKA_CLIENT_ID = get_env_var('KAFKA_CLIENT_ID', 'metrics-collector')
+    KAFKA_SECURITY_PROTOCOL = get_env_var('KAFKA_SECURITY_PROTOCOL', 'SASL_PLAINTEXT')
+    KAFKA_SASL_MECHANISM = get_env_var('KAFKA_SASL_MECHANISM', 'GSSAPI')
+    KAFKA_SERVICE_NAME = get_env_var('KAFKA_SERVICE_NAME', 'kafka')
+
+    # Schema Registry Configuration
+    SCHEMA_REGISTRY_URL = get_env_var('SCHEMA_REGISTRY_URL', 'http://localhost:8081')
 
     # Application Configuration
     LOG_LEVEL = get_env_var('LOG_LEVEL', 'DEBUG')
-    METRICS_BATCH_SIZE = get_int_env_var('METRICS_BATCH_SIZE', 100000)
-    REQUEST_TIMEOUT = get_int_env_var('REQUEST_TIMEOUT', 5)
     APP_ID = get_env_var('APP_ID', 'default-app-id')
 
     # Batch Processing Configuration
@@ -148,4 +147,5 @@ logger.info(f"Metrics batch size: {Config.METRICS_BATCH_SIZE}")
 logger.info(f"Maximum payload size: {Config.MAX_PAYLOAD_SIZE}")
 logger.info(f"Kafka connection status: {kafka_status}")
 logger.info(f"Kafka topic: {Config.KAFKA_TOPIC}")
+logger.info(f"Schema Registry URL: {Config.SCHEMA_REGISTRY_URL}")
 logger.info(f"App ID: {Config.APP_ID}")
