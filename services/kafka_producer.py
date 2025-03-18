@@ -1,19 +1,17 @@
 import json
 import logging
 import time
+import os
 from typing import Optional, Dict, Any
-from confluent_kafka import Producer, KafkaError
-from confluent_kafka.schema_registry import SchemaRegistryClient
-from confluent_kafka.schema_registry.avro import AvroSerializer
+from kafka import KafkaProducer
+from kafka.errors import KafkaError
 from config import Config
 
 logger = logging.getLogger(__name__)
 
 class KafkaProducerService:
     def __init__(self):
-        self.producer: Optional[Producer] = None
-        self.schema_registry_client: Optional[SchemaRegistryClient] = None
-        self.serializer: Optional[AvroSerializer] = None
+        self.producer: Optional[KafkaProducer] = None
         self.last_connection_attempt = 0
         self.connection_retry_interval = 5  # seconds
         self.connection_details = ""
@@ -21,7 +19,7 @@ class KafkaProducerService:
 
     def _initialize_producer(self) -> bool:
         """
-        Initialize the Confluent Kafka producer with retry mechanism
+        Initialize the Kafka producer with retry mechanism
         Returns True if successfully connected, False otherwise
         """
         current_time = time.time()
@@ -31,55 +29,28 @@ class KafkaProducerService:
         self.last_connection_attempt = current_time
         try:
             logger.info(f"Attempting to connect to Kafka at {Config.KAFKA_BOOTSTRAP_SERVERS}")
-
-            # Initialize Schema Registry client with Kerberos authentication
-            schema_registry_conf = {
-                'url': Config.SCHEMA_REGISTRY_URL,
-                'security.protocol': Config.SCHEMA_REGISTRY_SECURITY_PROTOCOL,
-                'sasl.mechanism': Config.SCHEMA_REGISTRY_SASL_MECHANISM,
-                'sasl.kerberos.service.name': Config.SCHEMA_REGISTRY_SERVICE_NAME
-            }
-            self.schema_registry_client = SchemaRegistryClient(schema_registry_conf)
-
-            # Load and register Avro schema
-            with open('schemas/metric.avsc', 'r') as f:
-                schema_str = f.read()
-
-            # Create Avro serializer
-            self.serializer = AvroSerializer(
-                schema_registry_client=self.schema_registry_client,
-                schema_str=schema_str,
-                to_dict=lambda x, ctx: x
+            self.producer = KafkaProducer(
+                bootstrap_servers=Config.KAFKA_BOOTSTRAP_SERVERS,
+                client_id=Config.KAFKA_CLIENT_ID,
+                value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+                acks='all',
+                retries=3,
+                max_in_flight_requests_per_connection=1,
+                reconnect_backoff_ms=1000,
+                reconnect_backoff_max_ms=10000
             )
-
-            # Configure Kafka Producer
-            producer_conf = {
-                'bootstrap.servers': Config.KAFKA_BOOTSTRAP_SERVERS,
-                'client.id': Config.KAFKA_CLIENT_ID,
-                'security.protocol': Config.KAFKA_SECURITY_PROTOCOL,
-                'sasl.mechanisms': Config.KAFKA_SASL_MECHANISM,
-                'sasl.kerberos.service.name': Config.KAFKA_SERVICE_NAME,
-                'broker.version.fallback': '0.10.1',
-                'api.version.request': True,
-                'acks': 'all',
-                'retries': 3,
-                'max.in.flight': 1
-            }
-
-            self.producer = Producer(producer_conf)
             self.connection_details = "Connected to Kafka successfully"
             logger.info(self.connection_details)
             return True
-
         except Exception as e:
             self.connection_details = f"Failed to connect to Kafka: {str(e)}"
-            logger.error(self.connection_details, exc_info=True)
+            logger.error(self.connection_details)
             self.producer = None
             return False
 
     def send_metric(self, metric_data: Dict[str, Any]) -> bool:
         """
-        Send metric data to Kafka topic using Avro serialization
+        Send metric data to Kafka topic
         Returns True if sent successfully, False otherwise
         """
         if not self.producer:
@@ -88,31 +59,19 @@ class KafkaProducerService:
                 return False
 
         try:
-            # Serialize the metric data using Avro
-            serialized_data = self.serializer(metric_data)
-
-            def delivery_report(err, msg):
-                if err is not None:
-                    logger.error(f'Message delivery failed: {err}')
-                else:
-                    logger.debug(f'Message delivered to {msg.topic()} [{msg.partition()}] at offset {msg.offset()}')
-
-            # Produce message
-            self.producer.produce(
-                topic=Config.KAFKA_TOPIC,
-                value=serialized_data,
-                on_delivery=delivery_report
-            )
-
-            # Wait for message to be delivered
-            self.producer.poll(0)
-            self.producer.flush()
-
-            logger.debug(f"Sent metric to Kafka topic={Config.KAFKA_TOPIC}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error sending metric to Kafka: {str(e)}", exc_info=True)
+            if self.producer:  # Double-check as _initialize_producer might have failed
+                future = self.producer.send(
+                    Config.KAFKA_TOPIC,
+                    value=metric_data
+                )
+                # Wait for the message to be delivered
+                record_metadata = future.get(timeout=2)
+                logger.debug(f"Sent metric to Kafka topic={record_metadata.topic} partition={record_metadata.partition} offset={record_metadata.offset}")
+                return True
+            return False
+        except KafkaError as e:
+            logger.error(f"Error sending metric to Kafka: {str(e)}")
+            self.producer = None  # Reset producer to trigger reconnection
             return False
 
     def get_status(self) -> Dict[str, str]:
@@ -129,6 +88,5 @@ class KafkaProducerService:
     def close(self):
         """Close the Kafka producer"""
         if self.producer:
-            self.producer.flush()
             self.producer.close()
             self.producer = None
