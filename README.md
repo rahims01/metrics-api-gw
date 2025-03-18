@@ -123,6 +123,25 @@ KAFKA_SASL_MECHANISM=GSSAPI
 KAFKA_SERVICE_NAME=kafka
 ```
 
+## Kafka and Schema Registry Authentication
+
+The application supports Kerberos authentication for both Kafka and Schema Registry. Configure the following environment variables:
+
+```env
+# Kafka Authentication
+KAFKA_SECURITY_PROTOCOL=SASL_PLAINTEXT
+KAFKA_SASL_MECHANISM=GSSAPI
+KAFKA_SERVICE_NAME=kafka
+
+# Schema Registry Authentication
+SCHEMA_REGISTRY_SECURITY_PROTOCOL=SASL_PLAINTEXT
+SCHEMA_REGISTRY_SASL_MECHANISM=GSSAPI
+SCHEMA_REGISTRY_SERVICE_NAME=kafka
+```
+
+These settings are used for both the Kafka producer/consumer and Schema Registry client connections. Make sure your Kerberos credentials are properly configured in your environment.
+
+
 ## Example Metric Submission
 
 Here's how to submit metrics that comply with the Avro schema:

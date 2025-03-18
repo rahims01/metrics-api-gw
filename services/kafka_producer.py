@@ -32,8 +32,13 @@ class KafkaProducerService:
         try:
             logger.info(f"Attempting to connect to Kafka at {Config.KAFKA_BOOTSTRAP_SERVERS}")
 
-            # Initialize Schema Registry client
-            schema_registry_conf = {'url': Config.SCHEMA_REGISTRY_URL}
+            # Initialize Schema Registry client with Kerberos authentication
+            schema_registry_conf = {
+                'url': Config.SCHEMA_REGISTRY_URL,
+                'security.protocol': Config.SCHEMA_REGISTRY_SECURITY_PROTOCOL,
+                'sasl.mechanism': Config.SCHEMA_REGISTRY_SASL_MECHANISM,
+                'sasl.kerberos.service.name': Config.SCHEMA_REGISTRY_SERVICE_NAME
+            }
             self.schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
             # Load and register Avro schema

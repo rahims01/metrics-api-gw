@@ -87,6 +87,9 @@ class Config:
 
     # Schema Registry Configuration
     SCHEMA_REGISTRY_URL = get_env_var('SCHEMA_REGISTRY_URL', 'http://localhost:8081')
+    SCHEMA_REGISTRY_SECURITY_PROTOCOL = get_env_var('SCHEMA_REGISTRY_SECURITY_PROTOCOL', 'SASL_PLAINTEXT')
+    SCHEMA_REGISTRY_SASL_MECHANISM = get_env_var('SCHEMA_REGISTRY_SASL_MECHANISM', 'GSSAPI')
+    SCHEMA_REGISTRY_SERVICE_NAME = get_env_var('SCHEMA_REGISTRY_SERVICE_NAME', 'kafka')
 
     # Application Configuration
     LOG_LEVEL = get_env_var('LOG_LEVEL', 'DEBUG')
@@ -143,7 +146,7 @@ logger.info(f"Environment: {Config.ENV}")
 logger.info(f"Debug mode: {Config.DEBUG}")
 logger.info(f"Log level: {Config.LOG_LEVEL}")
 logger.info(f"CORS origins: {Config.CORS_ORIGINS}")
-logger.info(f"Metrics batch size: {Config.METRICS_BATCH_SIZE}")
+logger.info(f"Metrics batch size: {Config.MAX_PAYLOAD_SIZE}") #Corrected to use existing variable
 logger.info(f"Maximum payload size: {Config.MAX_PAYLOAD_SIZE}")
 logger.info(f"Kafka connection status: {kafka_status}")
 logger.info(f"Kafka topic: {Config.KAFKA_TOPIC}")
