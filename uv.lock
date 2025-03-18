@@ -20,6 +20,12 @@ wheels = [
 ]
 
 [[package]]
+name = "avro-python3"
+version = "1.10.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cc/97/7a6970380ca8db9139a3cc0b0e3e0dd3e4bc584fb3644e1d06e71e1a55f0/avro-python3-1.10.2.tar.gz", hash = "sha256:3b63f24e6b04368c3e4a6f923f484be0230d821aad65ac36108edbff29e9aaab", size = 38701 }
+
+[[package]]
 name = "blinker"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -47,6 +53,30 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335 },
+]
+
+[[package]]
+name = "confluent-kafka"
+version = "2.8.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/4d/4ba3dcb54a1f84d2fc3abde259da568cfd398137c1c30f44ac9aede2b3ab/confluent_kafka-2.8.2.tar.gz", hash = "sha256:e8cac2a00968c587d7e7a8fbb6b2d3c2eb0d342d42fdf1fdc36c10036b944bf3", size = 191793 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/a8/8ac263f8a640bcc8faa48c3cd66964547a0953ba00e73811f0f4958a248e/confluent_kafka-2.8.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:958be78c89e25f2506ef39ee0251c171b9cd3f771ad7687ab56165e8e32b7df1", size = 3508458 },
+    { url = "https://files.pythonhosted.org/packages/ce/f0/781dd72c4eea2d74b5e7bac5957aacf33d2517ce9fbae11db3f2723419bc/confluent_kafka-2.8.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:38e0c4809670d9a6a3e268b82793db90fe408a569f7215266abd27b52b7ecf3d", size = 3038791 },
+    { url = "https://files.pythonhosted.org/packages/e6/d1/1a9e2402eccaf65aed478aa82aaa12de92be3b20517c7001252df0554148/confluent_kafka-2.8.2-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:882b67c076661be252dca962fe7f26c92e8da23b6607618e6512e462750e7f83", size = 15157939 },
+    { url = "https://files.pythonhosted.org/packages/eb/ba/6ea067c10c1177b88e15b3b4798c869917114b7de974fefca49a54c8f5f2/confluent_kafka-2.8.2-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:fd10d521873e7d2f64c7d1bc0ee1fc27434d7bc45e50e8a8abf7e8366e38002a", size = 3825107 },
+    { url = "https://files.pythonhosted.org/packages/a8/7d/3fcf018c59bdb3d686af84ed42409681cec9a51028ef484a4862e017d887/confluent_kafka-2.8.2-cp311-cp311-win_amd64.whl", hash = "sha256:1969bfb672a7c55d1bcacd54d3c2cf90f45dbef29a5934828d439cafded31dc9", size = 3959393 },
+    { url = "https://files.pythonhosted.org/packages/32/46/b119db08602e4fba8e2f6fc9d74df3bca746680229565a7b710e8bc0474e/confluent_kafka-2.8.2-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:b632a230abee16b03bdfbb931eb6cdd05a3b9474066b5dcae01550a0faf7cbaf", size = 3514448 },
+    { url = "https://files.pythonhosted.org/packages/37/f2/b0fc96554750d1d611739556f9501f454cb91de236dd168c13488e516843/confluent_kafka-2.8.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:cd8f33fb94258b676c7c86520f572e2866405056bb31c3425d01fbe0a21f6883", size = 3044190 },
+    { url = "https://files.pythonhosted.org/packages/7c/e2/dce865f8c2152a0b8c4bb515b9347a86b94130fe06105a9551ff4b06e8e0/confluent_kafka-2.8.2-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:2cb254a1d53af672cd0d9f3b34492cb5ca4dae829cecc48292afedd199312f06", size = 15162431 },
+    { url = "https://files.pythonhosted.org/packages/7d/61/f9bbb1b5c52656ecd5397d9ac6db26ed5f03824c92e7ecd17a8c31b0d572/confluent_kafka-2.8.2-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:9ca5a6ddd6401684d6e7237e11efb112087e4c4c4535503e07fc3385e52b2f16", size = 3829519 },
+    { url = "https://files.pythonhosted.org/packages/c0/29/097bc30d3eba5fac5a1e546afa171a3042dab837a940bfe770168e599372/confluent_kafka-2.8.2-cp312-cp312-win_amd64.whl", hash = "sha256:77eb22389c5d95a5d4b8a5713ee3f9ad084cbd19107eb80f51678f676fc3a27f", size = 3960034 },
+    { url = "https://files.pythonhosted.org/packages/9a/4d/87b809737f74c77a89848e278cde380bdf725bf2c0ab2055d93ca5448697/confluent_kafka-2.8.2-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:0974d544bf8b0f23cae70852e53a4e7fec1af7fc83222b302f3ce8855d3ff70b", size = 3048092 },
+    { url = "https://files.pythonhosted.org/packages/90/96/867177cd1f39ec956b91817a7211c285dba1118b2ce9a6c9f57c472e128b/confluent_kafka-2.8.2-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:8eb18f6908aa10cb1f410b429abcb0a62d0ca0daf4386ef3784022d0779d236e", size = 3517243 },
+    { url = "https://files.pythonhosted.org/packages/81/0a/123e72bca95f06da1e226fd4a7d2c03aedb43a5b13d01ebdaf25141f0ee0/confluent_kafka-2.8.2-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:9171a75ef2430eb04dea4b433de7ae20db063b7cea2318cb0e6394175a153f6f", size = 15162898 },
+    { url = "https://files.pythonhosted.org/packages/a4/d1/19f720ec099166737df36cbe608b40f106914c5536c5e9d97ee8b400c64e/confluent_kafka-2.8.2-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:6ea4f733aaa2c6363adb8cd1cfeda16599642c472e479cea66c6b298325df0aa", size = 3829869 },
+    { url = "https://files.pythonhosted.org/packages/4c/3b/d378fbeeb1d2fbba60f17821ef8a793f821d46212048e083ee04edc812aa/confluent_kafka-2.8.2-cp313-cp313-win_amd64.whl", hash = "sha256:60c6b77179301366410b35bbd224099a43061c983047329b69ed594f86240e7a", size = 4019718 },
+    { url = "https://files.pythonhosted.org/packages/f9/f6/cbfc0f21352ee7e6d6957ca9f0c3bbd1845827f1ee539feabc3952cd385d/confluent_kafka-2.8.2-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:1eaf441620918600bd8dcfb0e38f2102bf735938ba4d87b057bddacd1fa46262", size = 15161491 },
 ]
 
 [[package]]
@@ -251,15 +281,6 @@ wheels = [
 ]
 
 [[package]]
-name = "kafka-python"
-version = "2.0.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4f/ea/a084e240b0c2d3cc79b22c3ad8e7ed23293d362f22aaebd24e25bb38f21d/kafka_python-2.0.6.tar.gz", hash = "sha256:3ac47e7c41a67a1c23f1856c1953594440bb3d9cd532ad70e353982724e5d52d", size = 282472 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/64/28/348b014ccbc13acb2000f136b8d525de94ba1a5e6c4b558a9a535baf010a/kafka_python-2.0.6-py2.py3-none-any.whl", hash = "sha256:a2fdb00eaea7a827f5f74693365af6b615ff0795860261d8ebaad2bb5bc73e81", size = 252105 },
-]
-
-[[package]]
 name = "markupsafe"
 version = "3.0.2"
 source = { registry = "https://pypi.org/simple" }
@@ -312,13 +333,14 @@ name = "metrics-collection-api"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "avro-python3" },
+    { name = "confluent-kafka" },
     { name = "email-validator" },
     { name = "flask" },
     { name = "flask-cors" },
     { name = "flask-restx" },
     { name = "flask-sqlalchemy" },
     { name = "gunicorn" },
-    { name = "kafka-python" },
     { name = "prometheus-client" },
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
@@ -327,13 +349,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "avro-python3", specifier = ">=1.10.2" },
+    { name = "confluent-kafka", specifier = ">=2.3.0" },
     { name = "email-validator", specifier = ">=2.2.0" },
     { name = "flask", specifier = ">=3.1.0" },
     { name = "flask-cors", specifier = ">=5.0.1" },
     { name = "flask-restx", specifier = ">=1.3.0" },
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
     { name = "gunicorn", specifier = ">=23.0.0" },
-    { name = "kafka-python", specifier = ">=2.0.6" },
     { name = "prometheus-client", specifier = ">=0.21.1" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
