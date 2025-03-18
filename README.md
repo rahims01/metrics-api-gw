@@ -33,6 +33,25 @@ A robust Flask application designed for efficient metrics collection and managem
    - Configure Schema Registry URL
    - Set up Kerberos authentication if required
 
+## Kafka Configuration
+
+The application is configured to work with Kafka API version 0.10.1. This is set using the following configuration parameters in both producer and consumer:
+
+```python
+kafka_config = {
+    'broker.version.fallback': '0.10.1',
+    'api.version.request': True
+}
+```
+
+You can modify these settings in the producer and consumer configuration if you need to work with a different Kafka version.
+
+The Kafka producer and consumer are configured with:
+- Avro schema serialization/deserialization
+- Kerberos authentication support
+- Automatic retries and delivery reports
+- Consumer group management
+
 5. Run the application:
    ```bash
    python main.py

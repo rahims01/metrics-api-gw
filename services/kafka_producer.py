@@ -54,6 +54,8 @@ class KafkaProducerService:
                 'security.protocol': Config.KAFKA_SECURITY_PROTOCOL,
                 'sasl.mechanisms': Config.KAFKA_SASL_MECHANISM,
                 'sasl.kerberos.service.name': Config.KAFKA_SERVICE_NAME,
+                'broker.version.fallback': '0.10.1',
+                'api.version.request': True,
                 'acks': 'all',
                 'retries': 3,
                 'max.in.flight': 1
